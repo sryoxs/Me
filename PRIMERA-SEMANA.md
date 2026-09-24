@@ -2,14 +2,8 @@
 
 La guía es clara: el latido va al final. Esta semana el sistema se prueba contigo enfrente. Si estas cinco salen bien varias veces, la semana que viene se programan. Abre Claude Code **dentro de esta carpeta** (raíz del repositorio), nunca un nivel arriba.
 
-## 1. Llena los huecos del CLAUDE.md (día 1, 15 minutos)
-Pega esto en Claude Code:
-
-```
-Lee mi CLAUDE.md completo y dime en un párrafo: qué entiendes de mí y de este lugar, cuál es tu rol exacto aquí y cuál es la regla que no vas a romper pase lo que pase. Después lístame los [HUECO] que quedan y hazme una pregunta a la vez para llenarlos. Si contesto vago, pídeme un ejemplo concreto.
-```
-
-Para la voz: deja tres textos tuyos en `05-MATERIAL/voz/` y dile «saca los patrones de mi voz de 05-MATERIAL/voz y escríbelos en la sección 3 del CLAUDE.md».
+## 1. No configures nada (día 1)
+No hay entrevista. Usa Brainer y habla normal: qué estudias, qué construyes, qué te molesta. Cada dato estable que digas se guarda solo en `.claude/rules/aprendido.md` (y en la app, en su memoria). Si un día quieres ver qué aprendió: «qué sabes de mí».
 
 ## 2. Captura cinco notas crudas y procesa el inbox (días 1 y 2)
 Cinco notas en `00-INBOX/` (o dictadas en Brainer y traídas con «sincroniza Brainer»). Sin editar. Luego:

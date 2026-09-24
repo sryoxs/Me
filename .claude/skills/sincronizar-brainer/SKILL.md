@@ -22,6 +22,9 @@ curl -s -H "Authorization: Bearer $BRAINER_SECRET" https://brainer-sync.kusical.
 2. Cada nota de Brainer con `updated` posterior a la última sincronización y que no venga del vault (sin etiqueta `vault`) se escribe en `00-INBOX/brainer-<id-corto>.md` con frontmatter `fuente: brainer`, `brainer_id`, `tipo` (captura, tarea, idea…), `etiquetas`, y el cuerpo tal cual. No se afila aquí: eso lo hace `procesar-inbox`.
 3. Cada petición pendiente de `/engine/pending` se ejecuta con su habilidad (`data.skill` → `procesar-inbox`, `conexiones-semana`, `brief`, `escribir`, `examinar`, `proyecto`, `parte-del-dia`) y su `data.prompt`. Al terminar se marca `hecho` (ver formato).
 
+## Aprendizaje (Brainer → aprendido.md)
+`/engine/vault` devuelve `memory.facts` (frases que la app aprendió de lo que Smith dice, con fecha) y `profile`. Añade a `.claude/rules/aprendido.md` las que no estén ya, cada una en su sección, una línea con fecha. No dupliques; si dos dicen lo mismo, deja la más reciente.
+
 ## Llevar (vault → Brainer)
 Un solo `POST /sync` con los items. Cada nota que sube lleva etiqueta `vault` y, si es un informe del vault, `claude`.
 

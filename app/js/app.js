@@ -91,6 +91,7 @@ const tierNote = r => `<span class="tier">Neuro → <b>${TIER_LABEL[r.tier]}</b>
 // Identidad de Brainer para el modelo de lenguaje: quién es, a quién sirve, qué sabe ahora mismo.
 async function brainSystemPrompt(context) {
   const p = await kv.get('profile', {});
+  const facts = ((await kv.get('memory', {})).facts || []).slice(-30);
   const name = p.name || 'Smith';
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'local';
   const now = new Date().toLocaleString('es', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
@@ -105,7 +106,9 @@ async function brainSystemPrompt(context) {
     b ? `Estado de hoy: ${b}` : '',
     `Brainer también ayuda con proyectos, código, ideas de negocio y trabajo diario, no solo estudio. Tiene un equipo de agentes (Arquitecto, Programador, Tester, Marketing, Investigador, Archivista, Tejedor, Escriba) que trabajan con Claude Code cuando la tarea es grande.`,
     `Si ${name} pide algo que requiere trabajo real (investigar a fondo, construir una app, escribir un informe largo), dile que se lo pasas a Claude Code y que el resultado llegará a su bóveda; no lo hagas tú.`,
+    facts && facts.length ? `Lo que ya sabes de ${name} por conversaciones anteriores:\n${facts.map(f => '- ' + f.text).join('\n')}` : '',
     context ? `Notas de la bóveda de ${name} relevantes ahora (cítalas por título si las usas; no inventes notas):\n${context}` : `No hay notas relevantes para esto en la bóveda.`,
+    `Al final de tu respuesta, si ${name} reveló algo nuevo y estable sobre sí mismo (qué estudia, un proyecto, un gusto, cómo pide las cosas, una corrección a ti), añade una última línea que empiece exactamente con [memoria] y una frase corta en tercera persona. Si no hay nada nuevo, no añadas esa línea.`,
   ].filter(Boolean).join('\n');
 }
 
@@ -120,6 +123,14 @@ async function cloudConverse(text, r) {
   state.history = (state.history || []).slice(-10);
   const system = await brainSystemPrompt(context);
   const res = await cloudChat({ system, messages: [...state.history, { role: 'user', content: text }] });
+  // Aprendizaje: la línea [memoria] se guarda y se quita de lo que se muestra
+  const learned = [];
+  res.text = res.text.split('\n').filter(l => { const m = l.match(/^\s*\[memoria\]\s*(.+)$/i); if (m) { learned.push(m[1].trim()); return false; } return true; }).join('\n').trim();
+  if (learned.length) {
+    const mem = await kv.get('memory', {}); mem.facts = mem.facts || [];
+    for (const f of learned) if (!mem.facts.some(x => x.text.toLowerCase() === f.toLowerCase())) mem.facts.push({ text: f, at: Date.now() });
+    mem.facts = mem.facts.slice(-60); await kv.set('memory', mem);
+  }
   state.history.push({ role: 'user', content: text }, { role: 'assistant', content: res.text });
   const cited = used.filter(n => res.text.toLowerCase().includes(n.title.toLowerCase().slice(0, 12)));
   let html = esc(res.text);

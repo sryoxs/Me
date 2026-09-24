@@ -1,0 +1,14 @@
+# Ajustes locales de Obsidian, por si algún día abres la carpeta con él (no es el cerebro)
+.obsidian/
+# Basura del sistema
+.DS_Store
+Thumbs.db
+# Memoria y ajustes solo de esta máquina: no viajan a la nube a propósito
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/agent-memory-local/
+# Dependencias y secretos
+node_modules/
+.env
+.env.*
+.wrangler/

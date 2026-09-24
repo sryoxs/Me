@@ -8,7 +8,7 @@ import { search, parseIntent, normalize } from './search.js';
 import { Brain3D } from './brain3d.js';
 import { listen, voiceSupported } from './voice.js';
 import { converse, welcomeLine, idleThought, listVoices, speak as personaSpeak, tone } from './persona.js';
-import { chat as cloudChat, transcribe as cloudTranscribe, speakCloud, stopSpeaking, recordClip, cloudReady, inAppBrowser } from './cloud-ai.js';
+import { chat as cloudChat, transcribe as cloudTranscribe, speakCloud, stopSpeaking, recordClip, startRecording, cloudReady, inAppBrowser } from './cloud-ai.js';
 import { ask, parseCards, usageToday } from './ai.js';
 import { cardsFromNote, schedule, dueCards, stats as studyStats } from './study.js';
 import { requestNotifPermission, startTicker, suggestFromNotes, dailyBrief } from './reminders.js';
@@ -381,6 +381,7 @@ async function renderConnectCard() {
   const el = $('#connect-card'); if (!el) return;
   const ready = await cloudReady();
   el.hidden = ready;
+  document.body.classList.toggle('gated', !ready);
   if (!ready) $('#connect-secret').value = '';
 }
 async function connectWithSecret(secret) {
@@ -392,7 +393,8 @@ async function connectWithSecret(secret) {
     await saveSyncConfig({ url, secret, enabled: true });
     const r = await fullSync(); if (r.error) throw new Error(r.error);
     await loadNotes(); await renderConnectCard(); renderCockpit();
-    addMsg('brainer', 'Conectado a tu nube. Ya puedo oírte, hablar y conversar de verdad. Toca el micrófono o escríbeme.', { speakText: 'Conectado. Ya puedo oírte y hablarte.', always: true });
+    const prof = await kv.get('profile', {});
+    addMsg('brainer', 'Conectado a tu nube. Ya puedo oírte, hablarte y conversar de verdad. Pulsa el micrófono, habla, y vuelve a pulsarlo para enviar.', { speakText: `Conectado, ${prof.name || 'Smith'}. Ya puedo oírte y hablarte. Pulsa el micrófono, habla, y vuelve a pulsarlo para enviar.`, always: true });
     hud('inactivo'); return true;
   } catch (err) { hud('error'); addMsg('brainer', `No pude conectar: ${esc(err.message)}. Revisa la frase e inténtalo de nuevo.`); setTimeout(() => hud('inactivo'), 1500); return false; }
 }
@@ -717,6 +719,7 @@ async function renderSettings() {
   $('#set-ask-before-ai').checked = s.askBeforeAI; $('#set-proactive').checked = s.proactive; $('#set-checkin-hour').value = s.checkinHour; $('#set-voice-reply').checked = s.voiceReply;
   $('#set-local-whisper').checked = !!s.localWhisper; $('#set-local-embeddings').checked = !!s.localEmbeddings;
   $('#set-pitch').value = s.pitch || 0.82; $('#set-sounds').checked = s.sounds !== false; $('#set-cloud-voice').checked = s.cloudVoice !== false;
+  $('#set-speaker').value = s.speaker || 'celeste';
   const sel = $('#set-voice'); const voices = listVoices();
   sel.innerHTML = '<option value="">Automática (grave)</option>' + voices.map(v => `<option value="${esc(v.name)}" ${v.name === s.voiceName ? 'selected' : ''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('');
   await renderRequests();
@@ -748,7 +751,7 @@ async function persistSettings() {
     askBeforeAI: $('#set-ask-before-ai').checked, proactive: $('#set-proactive').checked, checkinHour: $('#set-checkin-hour').value || '19:00', voiceReply: $('#set-voice-reply').checked,
     localWhisper: $('#set-local-whisper').checked, localEmbeddings: $('#set-local-embeddings').checked, whisperModel: state.settings.whisperModel || 'onnx-community/whisper-base',
     voiceName: $('#set-voice').value, pitch: parseFloat($('#set-pitch').value) || 0.82, sounds: $('#set-sounds').checked,
-    cloudVoice: $('#set-cloud-voice').checked,
+    cloudVoice: $('#set-cloud-voice').checked, speaker: $('#set-speaker').value || 'celeste',
   };
   await saveSettings(s); state.settings = s; toast('Ajustes guardados');
 }
@@ -762,33 +765,35 @@ async function refreshUsage() {
 // ---------- Voz ----------
 async function startVoice() {
   const btn = $('#btn-voice');
+  const input = $('#composer-input');
+  // Segunda pulsación: dejar de grabar y enviar
+  if (state.recording) { uiTone('done'); state.recording.stop(); return; }
   if (state.listening) return;
+  if (inAppBrowser()) { showView('inicio'); addMsg('brainer', 'Estás dentro del navegador de otra app y no permite el micrófono. Abre <b>brainer.kusical.workers.dev</b> en Safari o Chrome.'); return; }
+  if (!(await cloudReady())) { showView('inicio'); await renderConnectCard(); addMsg('brainer', 'Primero conecta tu nube: pega la frase secreta arriba y pulsa Conectar. Sin eso no puedo oírte.'); return; }
   state.listening = true;
+  stopSpeaking();
+  const ph = input.placeholder;
   try {
     btn.classList.add('active'); setStatus('escuchando', 'listening'); hud('escuchando', 'oyendo…'); uiTone('listen');
-    let text = '';
-    stopSpeaking();
-    const input = $('#composer-input'); const ph = input.placeholder;
-    if (inAppBrowser()) { addMsg('brainer', 'Estás dentro del navegador de otra app y no permite el micrófono. Abre <b>brainer.kusical.workers.dev</b> en Safari o Chrome.'); return; }
-    if (!(await cloudReady())) { showView('inicio'); addMsg('brainer', 'Para oírte bien necesito tu nube. Pega la frase secreta en la tarjeta de arriba y pulsa Conectar; tarda unos segundos.'); await renderConnectCard(); if (!voiceSupported && !state.settings.localWhisper) return; }
-    input.placeholder = 'Escuchando… habla y haz una pausa';
-    if (await cloudReady()) {
-      // Oído en tu nube: grabamos hasta el silencio y Whisper transcribe en tu Worker.
-      const clip = await recordClip({ onLevel: lvl => state.brain && state.brain.setState('escuchando', lvl) });
-      if (clip) { hud('pensando', 'Whisper en tu nube…'); setStatus('transcribiendo', 'thinking'); text = await cloudTranscribe(clip); }
-    } else if (state.settings.localWhisper) {
-      // Red neuronal local: grabamos hasta el silencio y transcribimos en el dispositivo.
-      const audio = await recordUntilSilence({ onLevel: lvl => state.brain && state.brain.setState('escuchando', lvl) });
-      if (audio) { hud('pensando', 'Whisper transcribiendo en tu dispositivo…'); setStatus('transcribiendo', 'thinking'); text = await transcribe(audio); }
-    } else {
-      if (!voiceSupported) { toast('Tu navegador no soporta voz. Activa Whisper local en Ajustes o usa Safari/Chrome.'); return; }
-      text = await listen({ onEnd: () => { btn.classList.remove('active'); setStatus('local'); } });
-    }
-    input.placeholder = ph;
-    if (text) { uiTone('done'); showView('inicio'); await handleInput(text, { fromVoice: true }); }
-    else addMsg('brainer', 'No te escuché. Acércate al micrófono, habla y haz una pausa de un segundo al terminar.');
+    input.placeholder = 'Escuchando… habla y vuelve a pulsar el micrófono para enviar';
+    // Grabamos hasta que vuelvas a pulsar (o 4 s de silencio, o 60 s)
+    const rec = startRecording({ onLevel: lvl => state.brain && state.brain.setState('escuchando', lvl) });
+    state.recording = rec;
+    const clip = await rec.done;
+    state.recording = null;
+    btn.classList.remove('active');
+    if (!clip) { addMsg('brainer', 'No te escuché. Pulsa el micrófono, habla y vuelve a pulsarlo cuando termines.'); return; }
+    hud('pensando', 'transcribiendo en tu nube…'); setStatus('transcribiendo', 'thinking'); input.placeholder = 'Transcribiendo…';
+    const text = await cloudTranscribe(clip);
+    if (!text) { addMsg('brainer', 'Grabé, pero no distinguí palabras. Acércate al micrófono e inténtalo otra vez.'); return; }
+    input.value = text; // se ve lo que oyó antes de enviarse
+    await new Promise(r => setTimeout(r, 500));
+    input.value = '';
+    showView('inicio');
+    await handleInput(text, { fromVoice: true });
   } catch (err) { hud('error'); uiTone('error'); addMsg('brainer', esc(err.message)); }
-  finally { state.listening = false; btn.classList.remove('active'); setStatus('local'); $('#composer-input').placeholder = 'Habla con Brainer…'; setTimeout(() => hud('inactivo'), 800); }
+  finally { state.listening = false; state.recording = null; btn.classList.remove('active'); setStatus('local'); input.placeholder = ph; setTimeout(() => hud('inactivo'), 800); }
 }
 // Hablar con la voz de Brainer; el cerebro pasa a estado “hablando”
 async function speakHud(text) {
@@ -909,7 +914,7 @@ function bind() {
     $('#profile-form').hidden = true; renderProfile(); toast('Perfil guardado');
   };
   // Ajustes
-  ['#set-apikey', '#set-model-light', '#set-model-heavy', '#set-ask-before-ai', '#set-proactive', '#set-checkin-hour', '#set-voice-reply', '#set-local-whisper', '#set-local-embeddings', '#set-voice', '#set-pitch', '#set-sounds', '#set-cloud-voice'].forEach(s => $(s).onchange = persistSettings);
+  ['#set-apikey', '#set-model-light', '#set-model-heavy', '#set-ask-before-ai', '#set-proactive', '#set-checkin-hour', '#set-voice-reply', '#set-local-whisper', '#set-local-embeddings', '#set-voice', '#set-pitch', '#set-sounds', '#set-cloud-voice', '#set-speaker'].forEach(s => $(s).onchange = persistSettings);
   $('#btn-test-voice').onclick = async () => { await persistSettings(); uiTone('done'); const p = await kv.get('profile', {}); speakHud(`Sistemas en línea, ${p.name || 'Smith'}. Soy Brainer. ¿Por dónde empezamos?`); };
   $('#btn-load-models').onclick = loadModels;
   $('#btn-reindex').onclick = async () => { if (!state.settings.localEmbeddings) { toast('Activa la búsqueda semántica primero'); return; } toast('Indexando…'); const n = await indexNotes(); toast(`${n} notas indexadas`); renderCockpit(); };

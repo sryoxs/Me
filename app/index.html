@@ -54,7 +54,7 @@
         <div class="hud-corner tl"></div><div class="hud-corner tr"></div><div class="hud-corner bl"></div><div class="hud-corner br"></div>
         <form class="panel-glass connect" id="connect-card" hidden>
           <div class="ph">CONECTA TU NUBE</div>
-          <p class="muted small">Pega tu frase secreta una vez en este dispositivo. Activa el oído, la voz humana, la conversación y la sincronización.</p>
+          <p class="muted small">Brainer necesita tu nube para oírte, hablarte y conversar. Pega tu frase secreta una vez en este dispositivo.</p>
           <div class="row"><input id="connect-secret" type="password" placeholder="Frase secreta" autocomplete="off"><button type="submit" class="btn primary">Conectar</button></div>
         </form>
         <div class="stage-top">
@@ -161,6 +161,12 @@
         <div class="panel-glass block">
           <div class="ph">VOZ</div>
           <label class="check"><input type="checkbox" id="set-cloud-voice" checked> Voz humana en tu nube (Aura-2 en español). Requiere Brainer Sync conectado.</label>
+          <div class="row">
+            <label>Voz humana<select id="set-speaker" class="select">
+              <option value="celeste">Celeste</option><option value="carina">Carina</option><option value="diana">Diana</option><option value="aquila">Aquila</option><option value="selena">Selena</option><option value="estrella">Estrella</option>
+              <option value="sirio">Sirio (masculina)</option><option value="nestor">Néstor (masculina)</option><option value="alvaro">Álvaro (masculina)</option><option value="javier">Javier (masculina)</option>
+            </select></label>
+          </div>
           <p class="muted small">Si la nube no está disponible, Brainer usa una voz grave del sistema. Elige la que más se acerque a Jarvis en tu dispositivo.</p>
           <div class="row">
             <label>Voz<select id="set-voice" class="select"><option value="">Automática (grave)</option></select></label>

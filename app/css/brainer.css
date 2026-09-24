@@ -284,3 +284,10 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
 .connect { margin-bottom: 16px; border-color: var(--accent); box-shadow: 0 0 24px rgba(56,225,255,0.18); }
 .connect .row input { flex: 1; }
 .connect[hidden] { display: none; }
+
+/* Puerta: sin nube, solo se ve la tarjeta de conexión */
+body.gated .stage-top, body.gated .stage-mid, body.gated .skills-strip, body.gated .chat, body.gated .composer { opacity: 0.25; pointer-events: none; filter: blur(1px); }
+body.gated .connect { opacity: 1; filter: none; pointer-events: auto; animation: glow 2s ease-in-out infinite; }
+@keyframes glow { 0%,100% { box-shadow: 0 0 24px rgba(56,225,255,0.18); } 50% { box-shadow: 0 0 40px rgba(56,225,255,0.45); } }
+.icon-btn.mic.active { animation: rec 1s ease-in-out infinite; }
+@keyframes rec { 0%,100% { box-shadow: 0 0 12px rgba(255,92,122,0.4); } 50% { box-shadow: 0 0 26px rgba(255,92,122,0.9); } }

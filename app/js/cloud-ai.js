@@ -54,8 +54,16 @@ export async function speakCloud(text, { speaker = 'celeste', onStart } = {}) {
 }
 export function stopSpeaking() { if (currentAudio) { try { currentAudio.pause(); } catch (_) { /* nada */ } currentAudio = null; } }
 
+// Grabación con MediaRecorder. Modo manual: sigue grabando hasta que llames a stop() (o silencio largo / máximo).
+// Devuelve { done: Promise<Blob|null>, stop() }.
+export function startRecording({ maxMs = 60000, silenceMs = 4000, onLevel } = {}) {
+  let stopFn = () => {};
+  const done = recordClip({ maxMs, silenceMs, onLevel, expose: fn => { stopFn = fn; } });
+  return { done, stop: () => stopFn() };
+}
+
 // Grabación con MediaRecorder hasta silencio (~1,3 s) o máximo; devuelve Blob.
-export function recordClip({ maxMs = 15000, silenceMs = 1300, onLevel } = {}) {
+export function recordClip({ maxMs = 15000, silenceMs = 1300, onLevel, expose } = {}) {
   return new Promise(async (resolve, reject) => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { reject(new Error('Este navegador no permite usar el micrófono. Abre Brainer en Safari o Chrome, no dentro de otra app.')); return; }
     let stream;
@@ -82,6 +90,7 @@ export function recordClip({ maxMs = 15000, silenceMs = 1300, onLevel } = {}) {
       clearInterval(timer);
       if (rec.state !== 'inactive') rec.stop();
     }
+    if (expose) expose(() => { started = true; stop(); });
     rec.onstop = () => {
       stream.getTracks().forEach(t => t.stop()); ctx.close().catch(() => {});
       resolve(started ? new Blob(chunks, { type: rec.mimeType || mime || 'audio/webm' }) : null);

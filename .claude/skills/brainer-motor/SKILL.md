@@ -26,7 +26,8 @@ curl -s -H "Authorization: Bearer $BRAINER_SECRET" https://brainer-sync.kusical.
 2. Lee `/engine/vault` una sola vez para tener contexto (perfil, metas, notas recientes, tareas, memoria).
 3. Para cada petición, sigue la habilidad indicada en `data.skill` (`.claude/skills/brainer-<skill>/SKILL.md`, si existe) y su `data.prompt`.
 4. Escribe el informe como **nota** y marca la petición como hecha con un solo POST a `/sync` (ver formato).
-5. Al final, resume al usuario en 2–3 líneas qué informes dejaste.
+5. **Resumen diario automático**: calcula la hora local del usuario con `profile.timezone` de `/engine/vault` (si falta, usa `America/Lima`). Si son las 21:00 o más tarde y en la bóveda no existe todavía una nota titulada `Resumen del día · <fecha de hoy>`, ejecuta la habilidad `brainer-resumen-diario` aunque no haya peticiones pendientes.
+6. Al final, resume al usuario en 2–3 líneas qué informes dejaste.
 
 ## Equipo
 

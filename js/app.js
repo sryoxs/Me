@@ -924,7 +924,8 @@ const split = s => s.split(',').map(x => x.trim()).filter(Boolean);
 async function init() {
   state.settings = await getSettings();
   const prof = await kv.get('profile', {});
-  if (!prof.name) await kv.set('profile', { ...prof, name: 'Smith' });
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || '';
+  if (!prof.name || (tz && prof.timezone !== tz)) await kv.set('profile', { ...prof, name: prof.name || 'Smith', timezone: tz || prof.timezone });
   state.brain = new Brain3D($('#brain'), {
     onOpen: openNote,
     onHover: n => { const h = $('#graph-hover'); if (!h) return; if (n && state.view === 'grafo') { h.hidden = false; h.innerHTML = `<b>${esc(n.title)}</b><span class="readout">${esc(TYPE_LABEL[n.type] || n.type)}${(n.tags || []).length ? ' · ' + n.tags.map(esc).join(', ') : ''}</span><p>${esc((n.body || '').slice(0, 160))}</p>`; } else h.hidden = true; },

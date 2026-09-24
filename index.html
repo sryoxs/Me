@@ -23,6 +23,7 @@
         <span class="brand-name">Brainer</span>
         <span class="brand-status" id="brand-status">local</span>
         <span class="brand-status" id="sync-badge" hidden title="Sincronización">☁️</span>
+        <span class="brand-status" id="tier-badge" hidden title="Nivel elegido por Neuro"></span>
       </div>
       <button class="icon-btn" id="btn-voice" aria-label="Hablar con Brainer" title="Hablar con Brainer">🎤</button>
     </header>
@@ -45,16 +46,46 @@
     <!-- Vistas -->
     <main class="content">
 
-      <!-- INICIO: conversación con Brainer -->
+      <!-- CABINA: HUD + habilidades + conversación -->
       <section class="view active" id="view-inicio">
-        <div class="hero">
-          <h1 id="greeting">Hola.</h1>
-          <p class="muted" id="daily-brief">Cargando tu día…</p>
+        <div class="hud">
+          <canvas id="orb" class="orb" aria-hidden="true"></canvas>
+          <div class="hud-text">
+            <h1 id="greeting">Hola.</h1>
+            <p class="muted" id="daily-brief">Cargando tu día…</p>
+            <div class="hud-state"><span class="dot" id="hud-dot"></span><span id="hud-state">Listo</span> · <span class="muted small" id="hud-tier">Neuro en espera</span></div>
+          </div>
         </div>
+
+        <div class="cockpit">
+          <div class="cockpit-row">
+            <div class="meter card">
+              <div class="meter-head"><span>Claude Code · peticiones</span><span id="meter-requests">0 pendientes</span></div>
+              <div class="bar"><i id="meter-bar" style="width:0%"></i></div>
+              <div class="meter-foot muted small"><span id="meter-local">Redes locales: apagadas</span><span id="meter-sync">Sin sincronizar</span></div>
+            </div>
+          </div>
+          <div class="skills" id="skills"></div>
+          <div class="cockpit-row two">
+            <div class="card">
+              <h3>Hoy</h3>
+              <div id="today-agenda" class="agenda"></div>
+            </div>
+            <div class="card">
+              <h3>Tareas</h3>
+              <div id="today-tasks" class="tasks"></div>
+            </div>
+          </div>
+          <div class="card" id="reports-card">
+            <div class="view-head"><h3>Informes de Claude Code</h3><span class="muted small">llegan a tu bóveda</span></div>
+            <div id="reports-list"></div>
+          </div>
+        </div>
+
         <div class="suggestions" id="suggestions"></div>
         <div class="chat" id="chat"></div>
         <form class="composer" id="composer">
-          <input id="composer-input" type="text" placeholder="Pídele algo a Brainer: “búscame el informe de física”, “recuérdame estudiar a las 7pm”, “crea nota…”" autocomplete="off">
+          <input id="composer-input" type="text" placeholder="Habla con Brainer o pulsa el micrófono (Ctrl+Alt+J)" autocomplete="off">
           <button type="submit" class="primary">Enviar</button>
         </form>
       </section>
@@ -166,7 +197,26 @@
         <div class="view-head"><h2>Ajustes</h2></div>
 
         <div class="card">
-          <h3>Conexión con Claude</h3>
+          <h3>Redes neuronales en tu dispositivo</h3>
+          <p class="muted small">Modelos que corren en tu propio equipo, sin enviar nada fuera. La primera vez se descargan (Whisper ≈ 80 MB, embeddings ≈ 120 MB) y quedan guardados. Funcionan mejor en computadora o iPad.</p>
+          <label class="check"><input type="checkbox" id="set-local-whisper"> 🎙️ Whisper local: oír en el dispositivo (tu audio nunca sale)</label>
+          <label class="check"><input type="checkbox" id="set-local-embeddings"> 🧠 Búsqueda semántica: entiende el significado, no solo las palabras</label>
+          <div class="row">
+            <button class="btn ghost" id="btn-load-models">Descargar / preparar modelos ahora</button>
+            <button class="btn ghost" id="btn-reindex">Reindexar bóveda</button>
+          </div>
+          <div id="models-status" class="muted small"></div>
+          <p class="muted small">La voz de respuesta usa la del sistema (Kokoro aún no habla español en el navegador).</p>
+        </div>
+
+        <div class="card">
+          <h3>Claude Code (Nivel 3)</h3>
+          <p class="muted small">Las tareas exigentes las hace Claude Code desde tu repositorio: recoge tus peticiones de la bóveda cada hora, trabaja y deja el informe como nota. Sin clave de API.</p>
+          <div id="requests-list"></div>
+        </div>
+
+        <details class="card">
+          <summary>Conexión directa con la API de Claude (opcional, avanzado)</summary>
           <p class="muted small">Brainer funciona sin esto. Solo usa Claude cuando se lo pides para tareas exigentes. La clave se guarda únicamente en este dispositivo.</p>
           <input id="set-apikey" type="password" placeholder="sk-ant-…" autocomplete="off">
           <div class="row">
@@ -184,7 +234,7 @@
             </label>
           </div>
           <label class="check"><input type="checkbox" id="set-ask-before-ai" checked> Preguntarme antes de gastar créditos</label>
-        </div>
+        </details>
 
         <div class="card">
           <h3>Brainer proactivo</h3>
@@ -234,14 +284,16 @@
           <option value="idea">Idea</option>
         </select>
         <div class="actions">
-          <button class="icon-btn" id="note-ai" title="Pedir a Claude (gasta créditos)">✨</button>
+          <button class="icon-btn" id="note-preview" title="Vista previa">👁️</button>
+          <button class="icon-btn" id="note-ai" title="Pedir a Claude Code un informe sobre esta nota">✨</button>
           <button class="icon-btn" id="note-delete" title="Eliminar">🗑️</button>
           <button class="icon-btn" id="note-close" title="Cerrar">✕</button>
         </div>
       </div>
       <input id="note-title" type="text" placeholder="Título">
       <input id="note-tags" type="text" placeholder="#etiquetas separadas por espacio">
-      <textarea id="note-body" placeholder="Escribe aquí. Enlaza otras notas con [[Título de la nota]]."></textarea>
+      <textarea id="note-body" placeholder="Escribe aquí en markdown. Enlaza otras notas con [[Título de la nota]]."></textarea>
+      <div id="note-rendered" class="rendered" hidden></div>
       <div class="attachments" id="note-attachments"></div>
       <div class="panel-foot muted small">
         <span id="note-meta"></span>

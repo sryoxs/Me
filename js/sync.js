@@ -3,9 +3,9 @@
 // pendientes y trae los de otros dispositivos. Gana el cambio más reciente.
 // Los adjuntos (archivos) no se sincronizan en esta versión; el texto de la nota sí.
 
-import { notes, reminders, cards, kv, rawPut, rawDelete } from './store.js';
+import { notes, reminders, cards, requests, kv, rawPut, rawDelete } from './store.js';
 
-const SYNC_KINDS = { note: 'notes', reminder: 'reminders', card: 'cards' };
+const SYNC_KINDS = { note: 'notes', reminder: 'reminders', card: 'cards', request: 'requests' };
 let syncing = false;
 let listeners = [];
 export const onSync = fn => listeners.push(fn);
@@ -36,7 +36,7 @@ async function collectPending() {
     const store = SYNC_KINDS[p.kind];
     if (!store) continue;
     if (p.deleted) { items.push({ id: p.id, kind: p.kind, data: {}, updated: p.at, deleted: true }); continue; }
-    const row = await ({ notes, reminders, cards })[store].get(p.id);
+    const row = await ({ notes, reminders, cards, requests })[store].get(p.id);
     if (row) items.push({ id: p.id, kind: p.kind, data: stripFiles(row), updated: row.updated || p.at, deleted: false });
   }
   return { items, keys: Object.keys(q) };
@@ -61,7 +61,7 @@ async function applyRemote(items) {
       continue;
     }
     const store = SYNC_KINDS[it.kind]; if (!store) continue;
-    const local = await ({ notes, reminders, cards })[store].get(it.id);
+    const local = await ({ notes, reminders, cards, requests })[store].get(it.id);
     if (it.deleted) { if (local) { await rawDelete(store, it.id); changed++; } continue; }
     if (!local || (it.updated || 0) > (local.updated || 0)) {
       // Conservamos los adjuntos locales si la nota ya existía aquí.
@@ -113,6 +113,7 @@ export async function fullSync() {
   for (const x of n) await enqueue('note', x.id);
   for (const x of r) await enqueue('reminder', x.id);
   for (const x of c) await enqueue('card', x.id);
+  for (const x of await requests.all()) await enqueue('request', x.id);
   for (const key of ['profile', 'memory', 'settings']) await enqueue('kv', key);
   await rawPut('kv', { key: 'syncSince', value: 0 });
   return syncNow();

@@ -14,6 +14,8 @@ export class BrainGraph {
     this.drag = null; this.pan = null; this.hover = null;
     this.running = false;
     this.alpha = 1;
+    this.active = new Map(); // id → intensidad (0..1) tras una búsqueda
+    this.t = 0;
     this._bind();
   }
 
@@ -83,12 +85,19 @@ export class BrainGraph {
       if (!this.running) return;
       this.tick();
       this.draw();
-      if (this.alpha < 0.005 && !this.drag) { this.running = false; return; }
+      if (this.alpha < 0.005 && !this.drag && !(this.pulseUntil > Date.now())) { this.running = false; return; }
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   }
   wake() { this.alpha = Math.max(this.alpha, 0.3); this.start(); }
+
+  // Ilumina los nodos que respondieron a una búsqueda, como neuronas activándose.
+  activate(scores) {
+    this.active = new Map(scores.map(s => [s.id, s.score]));
+    this.pulseUntil = Date.now() + 6000;
+    this.wake();
+  }
 
   tick() {
     const nodes = this.nodes, edges = this.edges;
@@ -128,7 +137,7 @@ export class BrainGraph {
   }
 
   draw() {
-    const ctx = this.ctx;
+    const ctx = this.ctx; this.t += 0.02;
     const rect = this.canvas.getBoundingClientRect();
     ctx.clearRect(0, 0, rect.width, rect.height);
     ctx.save();
@@ -136,15 +145,27 @@ export class BrainGraph {
     // Aristas
     for (const e of this.edges) {
       ctx.beginPath(); ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y);
-      ctx.strokeStyle = e.kind === 'tag' ? 'rgba(107,114,128,0.25)' : 'rgba(124,92,255,0.45)';
+      const hot = (this.active.get(e.a.id) || 0) + (this.active.get(e.b.id) || 0);
+      ctx.strokeStyle = hot ? `rgba(77,212,255,${0.3 + Math.min(0.6, hot)})` : e.kind === 'tag' ? 'rgba(107,114,128,0.25)' : 'rgba(124,92,255,0.45)';
       ctx.lineWidth = e.kind === 'tag' ? 1 : 1.5;
       ctx.stroke();
+      // Pulso viajando por la arista (siempre en enlaces; en etiquetas solo si están activas)
+      if (e.kind === 'link' || hot) {
+        const k = (this.t * (hot ? 1.5 : 0.4) + (e.a.x + e.b.y) * 0.001) % 1;
+        ctx.fillStyle = hot ? '#4dd4ff' : 'rgba(124,92,255,0.8)';
+        ctx.beginPath(); ctx.arc(e.a.x + (e.b.x - e.a.x) * k, e.a.y + (e.b.y - e.a.y) * k, hot ? 2.5 : 1.6, 0, Math.PI * 2); ctx.fill();
+      }
     }
     // Nodos
     for (const n of this.nodes) {
       const color = COLORS[n.type] || COLORS.nota;
       const isHover = this.hover === n;
-      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + (isHover ? 3 : 0), 0, Math.PI * 2);
+      const act = this.active.get(n.id) || 0;
+      if (act) { // halo de activación
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 10 + 4 * Math.sin(this.t * 4), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(77,212,255,${0.12 + 0.25 * act})`; ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + (isHover ? 3 : 0) + act * 3, 0, Math.PI * 2);
       if (n.kind === 'note') {
         ctx.shadowColor = color; ctx.shadowBlur = isHover ? 24 : 12;
         ctx.fillStyle = color;

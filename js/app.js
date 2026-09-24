@@ -1,5 +1,8 @@
 // Brainer: lógica principal de la interfaz.
-import { notes, reminders, cards, files, kv, getSettings, saveSettings, exportAll, importAll, wipeAll, uid } from './store.js';
+import { notes, reminders, cards, files, requests, kv, getSettings, saveSettings, exportAll, importAll, wipeAll, uid } from './store.js';
+import { route, TIER_LABEL } from './neuro.js';
+import { Orb, STATE_LABEL } from './hud.js';
+import { loadWhisper, recordUntilSilence, transcribe, embed, indexNotes, semanticSearch, extractiveSummary, onProgress, embeddingsReady, whisperReady } from './local-ai.js';
 import { search, parseIntent, normalize } from './search.js';
 import { BrainGraph } from './graph.js';
 import { listen, speak, voiceSupported } from './voice.js';
@@ -44,7 +47,7 @@ function addMsg(role, html, { speakText } = {}) {
   el.innerHTML = html;
   $('#chat').appendChild(el);
   el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  if (role === 'brainer' && speakText && state.settings.voiceReply && state.lastInputWasVoice) speak(speakText);
+  if (role === 'brainer' && speakText && state.settings.voiceReply && state.lastInputWasVoice) speakHud(speakText);
   return el;
 }
 
@@ -52,13 +55,73 @@ function resultCard(note, snippet) {
   return `<span class="result" data-open="${note.id}"><b>${esc(note.title)}</b><span class="cite">${esc(note.type)} · ${fmtDate(note.updated)}</span><br>${esc(snippet || '')}</span>`;
 }
 
+// ---------- HUD ----------
+function hud(st, tierText) {
+  state.orb && state.orb.set(st);
+  const el = $('#hud-state'); if (el) el.textContent = STATE_LABEL[st] || st;
+  const wrap = $('.hud-state'); if (wrap) wrap.className = 'hud-state ' + st;
+  if (tierText !== undefined) { const t = $('#hud-tier'); if (t) t.textContent = tierText; }
+}
+function showTier(r) {
+  const b = $('#tier-badge'); b.hidden = false; b.textContent = `N${r.tier}`; b.title = `${TIER_LABEL[r.tier]} — ${r.reason}`;
+  hud(undefined, `${TIER_LABEL[r.tier]} · ${r.reason}`);
+  setTimeout(() => { b.hidden = true; }, 6000);
+}
+const tierNote = r => `<span class="tier">Neuro → <b>${TIER_LABEL[r.tier]}</b> · ${esc(r.reason)}</span>`;
+
+// Punto de entrada: Neuro decide el nivel y Brainer actúa.
 async function handleInput(text, { fromVoice = false } = {}) {
   text = (text || '').trim();
   if (!text) return;
   state.lastInputWasVoice = fromVoice;
   addMsg('user', esc(text));
-  const intent = parseIntent(text);
   await learnFromInput(text);
+  hud('pensando');
+  try {
+    // Respuestas a preguntas abiertas de Brainer (recordatorio sin hora, “¿qué estudiaste hoy?”)
+    if (state.pendingReminder || state.pendingCheckin) return await handleTier1(text, parseIntent(text), fromVoice);
+    const r = route(text, { hasSemantic: await embeddingsReady() });
+    showTier(r);
+    if (r.tier === 3) return await handleTier3(r, text);
+    if (r.tier === 2) return await handleTier2(r, text, fromVoice);
+    return await handleTier1(text, r.intent, fromVoice);
+  } finally { hud('inactivo'); }
+}
+
+// Nivel 3: la petición viaja a la bóveda y Claude Code la recoge.
+async function handleTier3(r, text) {
+  const req = await requests.save({ skill: r.skill, prompt: r.prompt || text });
+  const sync = await syncNow({ silent: true });
+  const where = sync && !sync.skipped && !sync.error ? 'Ya está en tu bóveda sincronizada; Claude Code la recoge en su próxima pasada (cada hora) y el informe aparecerá en la Cabina.' : 'Activa la sincronización en Ajustes para que Claude Code pueda recogerla.';
+  addMsg('brainer', `Esto es trabajo de verdad, se lo paso a <b>Claude Code</b> con la habilidad <b>${esc(r.skill)}</b>. ${where}${tierNote(r)}`, { speakText: 'Se lo paso a Claude Code. Te avisaré cuando llegue el informe.' });
+  renderCockpit();
+  return req;
+}
+
+// Nivel 2: red neuronal local — búsqueda por significado + resumen extractivo.
+async function handleTier2(r, text, fromVoice) {
+  const sem = await semanticSearch(text, { limit: 6 });
+  const kw = search(state.notes, r.intent.query, { type: r.intent.type, limit: 6 });
+  // Fusión: semántico (0..1) pesa más; palabras clave normalizadas
+  const maxKw = kw[0] ? kw[0].score : 1;
+  const fused = new Map();
+  for (const x of sem) fused.set(x.id, { id: x.id, score: x.score });
+  for (const x of kw) { const f = fused.get(x.note.id) || { id: x.note.id, score: 0 }; f.score += 0.6 * (x.score / maxKw); fused.set(x.note.id, f); }
+  const ranked = [...fused.values()].sort((a, b) => b.score - a.score).slice(0, 5).map(x => ({ ...x, note: state.notes.find(n => n.id === x.id) })).filter(x => x.note);
+  state.graph.activate(ranked.map(x => ({ id: x.id, score: Math.min(1, x.score) })));
+  if (!ranked.length) return handleTier1(text, r.intent, fromVoice);
+  const top = ranked[0];
+  let html = r.intent.question
+    ? `Según lo que tienes guardado:<br>${esc(extractiveSummary(top.note.body, 3))}${resultCard(top.note, '')}`
+    : `Esto es lo más parecido en tu cerebro:${resultCard(top.note, extractiveSummary(top.note.body, 2))}`;
+  const others = ranked.slice(1);
+  if (others.length) html += `<span class="cite">Relacionado: ${others.map(x => `<a href="#" data-open="${x.id}">${esc(x.note.title)}</a>`).join(' · ')}</span>`;
+  html += `<br><button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)}">🔬 Pedir a Claude Code un informe a fondo</button>${tierNote(r)}`;
+  addMsg('brainer', html, { speakText: r.intent.question ? extractiveSummary(top.note.body, 2) : `Encontré ${top.note.title}` });
+  if (fromVoice) openNote(top.note);
+}
+
+async function handleTier1(text, intent, fromVoice) {
 
   if (intent.intent === 'reminder') {
     if (!intent.when) {
@@ -117,13 +180,17 @@ async function handleInput(text, { fromVoice = false } = {}) {
     let html = `Encontré esto en tu cerebro:${resultCard(top.note, top.snippet)}`;
     if (others.length) html += `<span class="cite">También: ${others.map(r => `<a href="#" data-open="${r.note.id}">${esc(r.note.title)}</a>`).join(' · ')}</span>`;
     if (state.settings.apiKey) html += `<br><button class="btn ghost small" data-ai-about="${top.note.id}" data-q="${esc(text)}">✨ Pedir a Claude que responda con esta nota</button>`;
+    else html += `<br><button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)} (parte de la nota «${esc(top.note.title)}»)">🔬 Pedir a Claude Code un informe a fondo</button>`;
+    state.graph.activate(results.map(r => ({ id: r.note.id, score: Math.min(1, r.score / (results[0].score || 1)) })));
     addMsg('brainer', html, { speakText: `Encontré ${top.note.title}. ${top.snippet.slice(0, 120)}` });
     if (fromVoice && results.length === 1) openNote(top.note);
     return;
   }
-  if (intent.fallbackAI && state.settings.apiKey) {
-    const el = addMsg('brainer', `No tengo nada guardado sobre eso. <button class="btn ghost small" data-ai-free="${esc(text)}">✨ Preguntarle a Claude (gasta créditos)</button>`);
-    return el;
+  if (intent.fallbackAI) {
+    const btn = state.settings.apiKey
+      ? `<button class="btn ghost small" data-ai-free="${esc(text)}">✨ Preguntarle a Claude (gasta créditos)</button>`
+      : `<button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)}">🔬 Que Claude Code lo investigue</button>`;
+    return addMsg('brainer', `No tengo nada guardado sobre eso. ${btn} <button class="btn ghost small" data-create="${esc(text)}">📝 Guardarlo como nota</button>`);
   }
   addMsg('brainer', `No encontré nada sobre “${esc(intent.query)}” en tu bóveda. ¿Quieres que lo guarde como nota? Dime “crea nota sobre …”.`, { speakText: 'No encontré nada sobre eso en tu bóveda.' });
 }
@@ -192,6 +259,50 @@ async function aiFree(question) {
   } catch (err) { holder.innerHTML = `<span style="color:var(--danger)">${esc(err.message)}</span>`; }
 }
 
+// ---------- Cabina ----------
+async function loadSkills() {
+  if (state.skills) return state.skills;
+  try { state.skills = (await (await fetch('skills/skills.json')).json()).habilidades; } catch (_) { state.skills = []; }
+  return state.skills;
+}
+async function runSkill(id, { prompt } = {}) {
+  const sk = (await loadSkills()).find(s => s.id === id); if (!sk) return;
+  if (sk.nivel === 1) {
+    if (id === 'planificar-hoy') { showView('inicio'); await renderBrief(true); return; }
+    if (id === 'repaso') { showView('estudio'); startStudy(); return; }
+  }
+  let p = prompt;
+  if (!p && id === 'investigacion') { p = window.prompt('¿Qué tema quieres que investigue Claude Code?'); if (!p) return; }
+  showView('inicio');
+  addMsg('user', `${sk.icono} ${esc(sk.nombre)}${p ? ': ' + esc(p) : ''}`);
+  const r = { tier: 3, skill: id, prompt: p || sk.descripcion, reason: `botón “${sk.nombre}”` };
+  showTier(r);
+  await handleTier3(r, p || sk.nombre);
+}
+async function renderCockpit() {
+  const skills = await loadSkills();
+  const sk = $('#skills'); if (sk) sk.innerHTML = skills.map(s => `
+    <button class="skill" data-skill="${s.id}"><span>${s.icono} <b>${esc(s.nombre)}</b></span><small>${esc(s.descripcion)}</small><span class="lvl ${s.nivel === 3 ? 'l3' : ''}">${s.nivel === 3 ? 'Claude Code' : 'instantáneo'}</span></button>`).join('');
+  const [rems, reqs, last] = await Promise.all([reminders.all(), requests.all(), kv.get('syncLast', null)]);
+  const start = new Date(); start.setHours(0, 0, 0, 0); const end = new Date(start); end.setDate(end.getDate() + 1);
+  const today = rems.filter(r => !r.done && !r.suggested && r.when >= start.getTime() && r.when < end.getTime()).sort((a, b) => a.when - b.when);
+  const ag = $('#today-agenda'); if (ag) ag.innerHTML = today.length ? today.map(r => `<div class="item"><span class="time">${new Date(r.when).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</span><span>${esc(r.text)}</span></div>`).join('') : '<p class="muted small">Nada programado para hoy. Di “recuérdame … a las 5”.</p>';
+  const tasks = state.notes.filter(n => n.type === 'tarea' && !(n.tags || []).includes('hecha')).slice(0, 6);
+  const tk = $('#today-tasks'); if (tk) tk.innerHTML = tasks.length ? tasks.map(t => `<div class="item"><input type="checkbox" data-task-done="${t.id}"><a href="#" data-open="${t.id}">${esc(t.title)}</a></div>`).join('') : '<p class="muted small">Sin tareas pendientes. Di “crea tarea …”.</p>';
+  const reports = state.notes.filter(n => (n.tags || []).includes('informe') && (n.tags || []).includes('claude')).slice(0, 6);
+  const rl = $('#reports-list'); if (rl) rl.innerHTML = reports.length ? reports.map(n => `<div class="report" data-open="${n.id}"><b>${esc(n.title)}</b><span class="muted small">${fmtDate(n.updated)}</span></div>`).join('') : '<p class="muted small">Todavía no hay informes. Pulsa una habilidad de Claude Code y aparecerán aquí.</p>';
+  const pending = reqs.filter(r => r.status === 'pendiente').length, done = reqs.filter(r => r.status === 'hecho').length;
+  const mr = $('#meter-requests'); if (mr) mr.textContent = `${pending} pendiente${pending === 1 ? '' : 's'} · ${done} hecha${done === 1 ? '' : 's'}`;
+  const mb = $('#meter-bar'); if (mb) mb.style.width = reqs.length ? `${Math.round(done / reqs.length * 100)}%` : '0%';
+  const ml = $('#meter-local'); if (ml) ml.textContent = `Redes locales: ${(await whisperReady()) ? 'Whisper ✓' : 'Whisper –'} · ${(await embeddingsReady()) ? 'semántica ✓' : 'semántica –'}`;
+  const ms = $('#meter-sync'); if (ms) ms.textContent = last ? `Sincronizado ${fmtDate(last.at)}` : 'Sin sincronizar';
+}
+async function renderRequests() {
+  const el = $('#requests-list'); if (!el) return;
+  const reqs = (await requests.all()).sort((a, b) => b.created - a.created).slice(0, 12);
+  el.innerHTML = reqs.length ? reqs.map(r => `<div class="req"><span class="st ${r.status}">${esc(r.status)}</span><span class="grow">${esc(r.skill)} — ${esc((r.prompt || '').slice(0, 80))}</span>${r.reportId ? `<a href="#" data-open="${r.reportId}">ver informe</a>` : ''}<button class="icon-btn" data-req-del="${r.id}">🗑️</button></div>`).join('') : '<p class="muted small">Sin peticiones todavía.</p>';
+}
+
 // ---------- Inicio ----------
 async function renderHome() {
   const profile = await kv.get('profile', {});
@@ -199,6 +310,7 @@ async function renderHome() {
   const saludo = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
   $('#greeting').textContent = `${saludo}${profile.name ? ', ' + profile.name.split(' ')[0] : ''}.`;
   await renderBrief(false);
+  await renderCockpit();
 }
 
 async function renderBrief(asMessage) {
@@ -231,6 +343,8 @@ async function renderBrief(asMessage) {
 // ---------- Bóveda ----------
 async function loadNotes() {
   state.notes = (await notes.all()).sort((a, b) => b.updated - a.updated);
+  if (state.settings && state.settings.localEmbeddings) indexNotes().catch(() => {});
+  if (state.view === 'inicio') renderCockpit();
   if (state.view === 'boveda') renderVault();
   if (state.view === 'grafo') refreshGraph();
   if (state.view === 'perfil') renderProfile();
@@ -301,6 +415,18 @@ async function saveCurrentNote() {
   $('#note-meta').textContent = `Guardada ${fmtDate(saved.updated)}`;
   await loadNotes();
   await suggestFromNotes();
+}
+let markedPromise = null;
+async function renderPreview() {
+  const n = state.currentNote; if (!n) return;
+  const box = $('#note-rendered'), ta = $('#note-body');
+  const show = box.hidden; box.hidden = !show; ta.hidden = show;
+  if (!show) return;
+  if (!markedPromise) markedPromise = import('https://cdn.jsdelivr.net/npm/marked@18/+esm').then(m => m.marked);
+  const marked = await markedPromise;
+  const titles = new Map(state.notes.map(x => [x.title.toLowerCase(), x.id]));
+  const src = (ta.value || '').replace(/\[\[([^\]]+)\]\]/g, (_, t) => { const id = titles.get(t.trim().toLowerCase()); return id ? `<a href="#" class="wikilink" data-open="${id}">${t}</a>` : `<a href="#" class="wikilink missing" data-create="${t.replace(/"/g, '&quot;')}">${t}</a>`; });
+  box.innerHTML = marked.parse(src, { breaks: true });
 }
 function closeNote() { clearTimeout(saveTimer); saveCurrentNote(); $('#note-panel').hidden = true; state.currentNote = null; }
 
@@ -441,6 +567,8 @@ async function renderSettings() {
   const s = state.settings = await getSettings();
   $('#set-apikey').value = s.apiKey; $('#set-model-light').value = s.modelLight; $('#set-model-heavy').value = s.modelHeavy;
   $('#set-ask-before-ai').checked = s.askBeforeAI; $('#set-proactive').checked = s.proactive; $('#set-checkin-hour').value = s.checkinHour; $('#set-voice-reply').checked = s.voiceReply;
+  $('#set-local-whisper').checked = !!s.localWhisper; $('#set-local-embeddings').checked = !!s.localEmbeddings;
+  await renderRequests();
   const sc = await getSyncConfig();
   $('#sync-url').value = sc.url; $('#sync-secret').value = sc.secret; $('#sync-enabled').checked = sc.enabled;
   await renderSyncStatus();
@@ -453,10 +581,21 @@ async function renderSyncStatus(extra) {
   const el = $('#sync-status'); if (!el) return;
   el.textContent = extra || (!sc.enabled ? 'Desactivada. Solo se guarda en este dispositivo.' : last ? `Última sincronización ${fmtDate(last.at)} · ${q} cambio${q === 1 ? '' : 's'} pendiente${q === 1 ? '' : 's'}` : 'Activa. Aún no se ha sincronizado.');
 }
+async function loadModels() {
+  const el = $('#models-status');
+  try {
+    if (state.settings.localWhisper) { el.textContent = 'Preparando Whisper…'; await loadWhisper(); }
+    if (state.settings.localEmbeddings) { el.textContent = 'Preparando embeddings…'; await embed(['hola']); const n = await indexNotes(); el.textContent = `Modelos listos ✓ · ${n} notas indexadas`; }
+    else if (state.settings.localWhisper) el.textContent = 'Whisper listo ✓';
+    else el.textContent = 'Activa al menos un modelo arriba.';
+    renderCockpit();
+  } catch (err) { el.textContent = 'No se pudo cargar: ' + err.message; }
+}
 async function persistSettings() {
   const s = {
     apiKey: $('#set-apikey').value.trim(), modelLight: $('#set-model-light').value, modelHeavy: $('#set-model-heavy').value,
     askBeforeAI: $('#set-ask-before-ai').checked, proactive: $('#set-proactive').checked, checkinHour: $('#set-checkin-hour').value || '19:00', voiceReply: $('#set-voice-reply').checked,
+    localWhisper: $('#set-local-whisper').checked, localEmbeddings: $('#set-local-embeddings').checked, whisperModel: state.settings.whisperModel || 'onnx-community/whisper-base',
   };
   await saveSettings(s); state.settings = s; toast('Ajustes guardados');
 }
@@ -468,15 +607,28 @@ async function refreshUsage() {
 
 // ---------- Voz ----------
 async function startVoice() {
-  if (!voiceSupported) { toast('Tu navegador no soporta voz. Prueba Safari o Chrome.'); return; }
   const btn = $('#btn-voice');
+  if (state.listening) return;
+  state.listening = true;
   try {
-    btn.classList.add('active'); setStatus('escuchando…', 'listening');
-    const text = await listen({ onEnd: () => { btn.classList.remove('active'); setStatus('local'); } });
+    btn.classList.add('active'); setStatus('escuchando…', 'listening'); hud('escuchando', 'oyendo…');
+    let text = '';
+    if (state.settings.localWhisper) {
+      // Red neuronal local: grabamos hasta el silencio y transcribimos en el dispositivo.
+      const audio = await recordUntilSilence({ onLevel: lvl => state.orb && state.orb.set('escuchando', { level: lvl }) });
+      if (audio) { hud('pensando', 'Whisper transcribiendo en tu dispositivo…'); setStatus('transcribiendo', 'thinking'); text = await transcribe(audio); }
+    } else {
+      if (!voiceSupported) { toast('Tu navegador no soporta voz. Activa Whisper local en Ajustes o usa Safari/Chrome.'); return; }
+      text = await listen({ onEnd: () => { btn.classList.remove('active'); setStatus('local'); } });
+    }
     if (text) { showView('inicio'); await handleInput(text, { fromVoice: true }); }
-  } catch (err) { toast(err.message); }
-  finally { btn.classList.remove('active'); setStatus('local'); }
+    else toast('No te escuché. Inténtalo otra vez.');
+  } catch (err) { hud('error'); toast(err.message, 5000); }
+  finally { state.listening = false; btn.classList.remove('active'); setStatus('local'); setTimeout(() => hud('inactivo'), 800); }
 }
+// Hablar en voz alta con el orbe en estado “hablando”
+const _speak = speak;
+function speakHud(text) { hud('hablando'); _speak(text); const ms = Math.min(12000, 60 * (text || '').length); setTimeout(() => hud('inactivo'), ms); }
 
 // ---------- Eventos ----------
 function bind() {
@@ -496,12 +648,22 @@ function bind() {
     if (aiAbout) { aiAboutNote(aiAbout.dataset.aiAbout, aiAbout.dataset.q); return; }
     const aiF = e.target.closest('[data-ai-free]');
     if (aiF) { aiFree(aiF.dataset.aiFree); return; }
+    const skill = e.target.closest('[data-skill]');
+    if (skill) { runSkill(skill.dataset.skill); return; }
+    const rq = e.target.closest('[data-req-skill]');
+    if (rq) { runSkill(rq.dataset.reqSkill, { prompt: rq.dataset.reqPrompt }); return; }
+    const rqd = e.target.closest('[data-req-del]');
+    if (rqd) { requests.remove(rqd.dataset.reqDel).then(() => { renderRequests(); renderCockpit(); }); return; }
+    const cr = e.target.closest('[data-create]');
+    if (cr) { e.preventDefault(); notes.save({ title: cr.dataset.create.slice(0, 60), body: '', type: 'nota' }).then(async n => { await loadNotes(); openNote(n); }); return; }
     const del = e.target.closest('[data-del]');
     if (del) { reminders.remove(del.dataset.del).then(renderReminders); return; }
     const acc = e.target.closest('[data-accept]');
     if (acc) { reminders.all().then(async all => { const r = all.find(x => x.id === acc.dataset.accept); if (r) { r.suggested = false; await reminders.save(r); await requestNotifPermission(); renderReminders(); toast('Recordatorio activado'); } }); return; }
   });
   document.addEventListener('change', e => {
+    const td = e.target.closest('[data-task-done]');
+    if (td) notes.get(td.dataset.taskDone).then(async n => { if (n) { await notes.save({ ...n, tagText: (n.tags || []).map(t => '#' + t).join(' ') + ' #hecha' }); await loadNotes(); renderCockpit(); toast('Tarea completada'); } });
     const done = e.target.closest('[data-done]');
     if (done) reminders.all().then(async all => { const r = all.find(x => x.id === done.dataset.done); if (r) { r.done = done.checked; await reminders.save(r); renderReminders(); } });
   });
@@ -514,6 +676,7 @@ function bind() {
   ['#note-title', '#note-body', '#note-tags'].forEach(s => $(s).oninput = scheduleSave);
   $('#note-type').onchange = scheduleSave;
   $('#note-close').onclick = closeNote;
+  $('#note-preview').onclick = renderPreview;
   $('#note-delete').onclick = async () => {
     if (!state.currentNote || !state.currentNote.id) { $('#note-panel').hidden = true; return; }
     if (!confirm('¿Eliminar esta nota?')) return;
@@ -521,7 +684,11 @@ function bind() {
   };
   $('#note-ai').onclick = async () => {
     await saveCurrentNote(); const n = state.currentNote; if (!n || !n.id) return;
-    if (!state.settings.apiKey) { toast('Configura tu clave de Claude en Ajustes'); showView('ajustes'); return; }
+    if (!state.settings.apiKey) {
+      const p = window.prompt('¿Qué quieres que haga Claude Code con esta nota?', `Explica a fondo y amplía la nota «${n.title}» con fuentes y preguntas de repaso`);
+      if (!p) return;
+      $('#note-panel').hidden = true; await runSkill('investigacion', { prompt: p }); return;
+    }
     const r = await aiDialog(`Claude sobre “${n.title}”`, 'Resume esta nota en 5 puntos y crea 5 tarjetas de estudio en JSON al final.');
     if (!r || !r.prompt) return;
     toast('Pidiendo a Claude…');
@@ -564,7 +731,11 @@ function bind() {
     $('#profile-form').hidden = true; renderProfile(); toast('Perfil guardado');
   };
   // Ajustes
-  ['#set-apikey', '#set-model-light', '#set-model-heavy', '#set-ask-before-ai', '#set-proactive', '#set-checkin-hour', '#set-voice-reply'].forEach(s => $(s).onchange = persistSettings);
+  ['#set-apikey', '#set-model-light', '#set-model-heavy', '#set-ask-before-ai', '#set-proactive', '#set-checkin-hour', '#set-voice-reply', '#set-local-whisper', '#set-local-embeddings'].forEach(s => $(s).onchange = persistSettings);
+  $('#btn-load-models').onclick = loadModels;
+  $('#btn-reindex').onclick = async () => { if (!state.settings.localEmbeddings) { toast('Activa la búsqueda semántica primero'); return; } toast('Indexando…'); const n = await indexNotes(); toast(`${n} notas indexadas`); renderCockpit(); };
+  onProgress(p => { const el = $('#models-status'); if (!el) return; const name = p.model.split('/').pop(); el.textContent = p.status === 'progress' ? `${name}: ${p.file || ''} ${Math.round(p.progress)}%` : p.status === 'ready' ? `${name}: listo ✓` : `${name}: ${p.status}`; });
+  document.addEventListener('keydown', e => { if (e.ctrlKey && e.altKey && (e.key === 'j' || e.key === 'J')) { e.preventDefault(); startVoice(); } });
   // Sincronización
   $('#sync-enabled').onchange = async e => { const sc = await getSyncConfig(); await saveSyncConfig({ ...sc, enabled: e.target.checked }); renderSyncStatus(); if (e.target.checked) syncNow(); };
   $('#btn-sync-connect').onclick = async () => {
@@ -585,7 +756,14 @@ function bind() {
     const badge = $('#sync-badge'); badge.hidden = false;
     badge.textContent = evt.state === 'syncing' ? '☁️…' : evt.state === 'error' ? '☁️!' : '☁️';
     badge.title = evt.state === 'error' ? evt.message : 'Sincronizado';
-    if (evt.state === 'ok' && evt.pulled > 0) { loadNotes(); if (state.view === 'recordatorios') renderReminders(); if (state.view === 'estudio') renderStudy(); }
+    if (evt.state === 'ok' && evt.pulled > 0) {
+      const before = state.notes.filter(n => (n.tags || []).includes('claude')).length;
+      loadNotes().then(() => {
+        const after = state.notes.filter(n => (n.tags || []).includes('claude')).length;
+        if (after > before) { toast('📄 Claude Code dejó un informe nuevo en tu bóveda', 6000); if (state.view === 'inicio') addMsg('brainer', 'Llegó un informe de Claude Code. Lo tienes en la Cabina y en la Bóveda.', { speakText: 'Llegó un informe de Claude Code.' }); }
+      });
+      if (state.view === 'recordatorios') renderReminders(); if (state.view === 'estudio') renderStudy(); if (state.view === 'ajustes') renderRequests();
+    }
     if (state.view === 'ajustes') renderSyncStatus();
   });
 
@@ -611,6 +789,7 @@ const split = s => s.split(',').map(x => x.trim()).filter(Boolean);
 async function init() {
   state.settings = await getSettings();
   state.graph = new BrainGraph($('#graph'), { onOpen: openNote });
+  state.orb = new Orb($('#orb'));
   bind();
   await loadNotes();
   await suggestFromNotes();

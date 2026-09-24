@@ -34,10 +34,24 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     const url = new URL(request.url);
     if (url.pathname === '/health') return json({ ok: true });
-    if (url.pathname !== '/sync') return json({ error: 'No encontrado' }, 404);
+    if (!['/sync', '/engine/pending', '/engine/vault'].includes(url.pathname)) return json({ error: 'No encontrado' }, 404);
     if (!(await authorized(request, env))) return json({ error: 'Frase secreta incorrecta' }, 401);
 
     const now = Date.now();
+    // --- Motor (Claude Code): peticiones pendientes y contenido de la bóveda ---
+    if (url.pathname === '/engine/pending') {
+      const { results } = await env.DB.prepare("SELECT id, data, updated FROM items WHERE kind = 'request' AND deleted = 0 ORDER BY updated ASC").all();
+      const pending = results.map(r => ({ id: r.id, ...safeParse(r.data), updated: r.updated })).filter(r => r.status === 'pendiente');
+      return json({ pending, now });
+    }
+    if (url.pathname === '/engine/vault') {
+      const { results } = await env.DB.prepare("SELECT id, kind, data, updated FROM items WHERE kind IN ('note','reminder','card') AND deleted = 0 ORDER BY updated DESC LIMIT 2000").all();
+      const items = results.map(r => ({ id: r.id, kind: r.kind, updated: r.updated, ...safeParse(r.data) }));
+      const kv = await env.DB.prepare("SELECT id, data FROM items WHERE kind = 'kv' AND deleted = 0").all();
+      const meta = Object.fromEntries(kv.results.map(r => [r.id.replace(/^kv:/, ''), safeParse(r.data)]));
+      if (meta.settings) delete meta.settings.apiKey;
+      return json({ notes: items.filter(i => i.kind === 'note'), reminders: items.filter(i => i.kind === 'reminder'), cards: items.filter(i => i.kind === 'card').length, profile: meta.profile || {}, memory: meta.memory || {}, now });
+    }
     if (request.method === 'POST') {
       let body;
       try { body = await request.json(); } catch (_) { return json({ error: 'JSON inválido' }, 400); }

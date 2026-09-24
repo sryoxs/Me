@@ -2,7 +2,7 @@
 // Colecciones: notes, reminders, cards (flashcards), files (adjuntos), kv (ajustes, perfil, uso).
 
 const DB_NAME = 'brainer';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise = null;
 
@@ -25,6 +25,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains('files')) db.createObjectStore('files', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv', { keyPath: 'key' });
+      // v2: peticiones a Claude Code (Nivel 3) y vectores semánticos de las notas
+      if (!db.objectStoreNames.contains('requests')) db.createObjectStore('requests', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('vectors')) db.createObjectStore('vectors', { keyPath: 'id' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -138,6 +141,27 @@ export const cards = {
   remove: async id => { await tx('cards', 'readwrite', s => s.delete(id)); await enqueue('card', id, true); },
 };
 
+// ---- Peticiones a Claude Code (Nivel 3) ----
+export const requests = {
+  all: () => getAll('requests'),
+  get: id => getOne('requests', id),
+  async save(r) {
+    const item = { id: r.id || uid(), skill: r.skill, prompt: r.prompt || '', status: r.status || 'pendiente', created: r.created || Date.now(), reportId: r.reportId || null, updated: Date.now() };
+    await tx('requests', 'readwrite', s => s.put(item));
+    await enqueue('request', item.id);
+    return item;
+  },
+  remove: async id => { await tx('requests', 'readwrite', s => s.delete(id)); await enqueue('request', id, true); },
+};
+
+// ---- Vectores semánticos (solo locales, no se sincronizan) ----
+export const vectors = {
+  all: () => getAll('vectors'),
+  get: id => getOne('vectors', id),
+  put: v => tx('vectors', 'readwrite', s => s.put(v)),
+  remove: id => tx('vectors', 'readwrite', s => s.delete(id)),
+};
+
 // ---- Archivos adjuntos ----
 export const files = {
   get: id => getOne('files', id),
@@ -174,6 +198,9 @@ export const DEFAULT_SETTINGS = {
   proactive: true,
   checkinHour: '19:00',
   voiceReply: true,
+  localWhisper: false,   // Whisper en el dispositivo (descarga el modelo la primera vez)
+  localEmbeddings: false, // búsqueda semántica con red neuronal local
+  whisperModel: 'onnx-community/whisper-base',
 };
 
 export async function getSettings() {
@@ -183,13 +210,13 @@ export const saveSettings = s => kv.set('settings', s);
 
 // ---- Respaldo completo ----
 export async function exportAll() {
-  const [n, r, c, f, s, p, u, m] = await Promise.all([
-    notes.all(), reminders.all(), cards.all(), getAll('files'), kv.get('settings', {}), kv.get('profile', {}), kv.get('usage', {}), kv.get('memory', {}),
+  const [n, r, c, f, s, p, u, m, rq] = await Promise.all([
+    notes.all(), reminders.all(), cards.all(), getAll('files'), kv.get('settings', {}), kv.get('profile', {}), kv.get('usage', {}), kv.get('memory', {}), getAll('requests'),
   ]);
   // Los adjuntos se exportan como base64 para que viajen en el JSON.
   const filesOut = await Promise.all(f.map(async x => ({ ...x, blob: await blobToBase64(x.blob) })));
   const settings = { ...s, apiKey: '' }; // nunca exportamos la clave
-  return { app: 'brainer', version: 1, exported: Date.now(), notes: n, reminders: r, cards: c, files: filesOut, settings, profile: p, usage: u, memory: m };
+  return { app: 'brainer', version: 1, exported: Date.now(), notes: n, reminders: r, cards: c, files: filesOut, settings, profile: p, usage: u, memory: m, requests: rq };
 }
 
 export async function importAll(data, { merge = true } = {}) {
@@ -198,6 +225,7 @@ export async function importAll(data, { merge = true } = {}) {
   for (const n of data.notes || []) await tx('notes', 'readwrite', s => s.put(n));
   for (const r of data.reminders || []) await tx('reminders', 'readwrite', s => s.put(r));
   for (const c of data.cards || []) await tx('cards', 'readwrite', s => s.put(c));
+  for (const q of data.requests || []) await tx('requests', 'readwrite', s => s.put(q));
   for (const f of data.files || []) await tx('files', 'readwrite', s => s.put({ ...f, blob: base64ToBlob(f.blob, f.type) }));
   if (data.profile) await kv.set('profile', data.profile);
   if (data.memory) await kv.set('memory', data.memory);

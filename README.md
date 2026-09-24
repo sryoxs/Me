@@ -36,9 +36,23 @@ python3 -m http.server 8080
 2. Pégala en **Ajustes → Conexión con Claude**. Se guarda solo en tu dispositivo, nunca se exporta.
 3. Cuando quieras, pulsa ✨ en una nota o en un resultado de búsqueda. Eliges **Ligero** (Haiku 4.5, muy barato) o **Exigente** (Opus 5). Brainer te muestra los tokens y el costo estimado de cada día.
 
-## Varios dispositivos
+## Varios dispositivos (Brainer Sync)
 
-En esta versión: **Ajustes → Exportar cerebro** en un dispositivo y **Importar cerebro** en el otro. La sincronización automática (por ejemplo con Supabase) está prevista como siguiente paso.
+Brainer se sincroniza solo entre tu celular, iPad y computadora usando **tu propia cuenta de Cloudflare** (plan gratuito): un Worker (`worker/`) y una base de datos D1 llamada `brainer`. Nadie más tiene acceso: hace falta una frase secreta que solo tú conoces.
+
+### Puesta en marcha (una sola vez)
+
+1. En Cloudflare → **My Profile → API Tokens → Create Token → plantilla "Edit Cloudflare Workers"**. Copia el token.
+2. Tu **Account ID** aparece en Cloudflare → Workers & Pages (barra derecha).
+3. Inventa una **frase secreta** larga (será tu llave del cerebro).
+4. En GitHub → **Settings → Secrets and variables → Actions** crea tres secretos:
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `BRAINER_SECRET`
+5. Ejecuta el flujo **Desplegar Brainer Sync** (Actions → Run workflow, o se lanza solo al hacer merge a `main`). Al terminar verás la dirección del Worker, algo como `https://brainer-sync.<tu-cuenta>.workers.dev`.
+6. En Brainer → **Ajustes → Sincronizar entre dispositivos**: pega la dirección y la frase secreta y pulsa **Conectar y sincronizar todo**. Repite en cada dispositivo.
+
+A partir de ahí se sincroniza al abrir la app, al volver a ella y cada minuto. Si dos dispositivos cambian lo mismo, gana el cambio más reciente. Los archivos adjuntos se quedan en el dispositivo donde los importaste (el texto extraído sí viaja); para llevarlos usa **Exportar/Importar cerebro**.
 
 ## Estructura
 

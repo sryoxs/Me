@@ -1,0 +1,13 @@
+name = "brainer-sync"
+main = "index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "brainer"
+database_id = "d428536a-9498-44c4-9fe9-af256fe535f7"
+
+# La frase secreta se guarda como secreto del Worker, nunca aquí:
+#   wrangler secret put BRAINER_SECRET
+# (el flujo de GitHub Actions lo hace por ti a partir del secreto del repositorio)

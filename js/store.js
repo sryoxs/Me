@@ -59,6 +59,18 @@ function getOne(store, key) {
   }));
 }
 
+// Escritura/borrado directo, sin pasar por la cola de sincronización (lo usa sync.js).
+export const rawPut = (store, obj) => tx(store, 'readwrite', s => s.put(obj));
+export const rawDelete = (store, key) => tx(store, 'readwrite', s => s.delete(key));
+
+// Cola de cambios pendientes de sincronizar (la consume sync.js).
+async function enqueue(kind, id, deleted = false) {
+  const r = await getOne('kv', 'syncQueue');
+  const q = (r && r.value) || {};
+  q[`${kind}:${id}`] = { kind, id, deleted, at: Date.now() };
+  await tx('kv', 'readwrite', s => s.put({ key: 'syncQueue', value: q }));
+}
+
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 // Extrae #etiquetas y [[enlaces]] del texto de una nota.
@@ -89,9 +101,10 @@ export const notes = {
       updated: now,
     };
     await tx('notes', 'readwrite', s => s.put(n));
+    await enqueue('note', n.id);
     return n;
   },
-  remove: id => tx('notes', 'readwrite', s => s.delete(id)),
+  remove: async id => { await tx('notes', 'readwrite', s => s.delete(id)); await enqueue('note', id, true); },
 };
 
 // ---- Recordatorios ----
@@ -99,10 +112,13 @@ export const reminders = {
   all: () => getAll('reminders'),
   async save(r) {
     const item = { id: r.id || uid(), text: r.text, when: r.when, done: !!r.done, suggested: !!r.suggested, created: r.created || Date.now(), notified: !!r.notified, sourceKey: r.sourceKey || null, noteId: r.noteId || null };
+    item.updated = Date.now();
     await tx('reminders', 'readwrite', s => s.put(item));
+    await enqueue('reminder', item.id);
     return item;
   },
-  remove: id => tx('reminders', 'readwrite', s => s.delete(id)),
+  get: id => getOne('reminders', id),
+  remove: async id => { await tx('reminders', 'readwrite', s => s.delete(id)); await enqueue('reminder', id, true); },
 };
 
 // ---- Flashcards ----
@@ -113,10 +129,13 @@ export const cards = {
       id: c.id || uid(), noteId: c.noteId || null, q: c.q, a: c.a,
       due: c.due || Date.now(), interval: c.interval || 0, ease: c.ease || 2.5, reps: c.reps || 0, created: c.created || Date.now(),
     };
+    item.updated = Date.now();
     await tx('cards', 'readwrite', s => s.put(item));
+    await enqueue('card', item.id);
     return item;
   },
-  remove: id => tx('cards', 'readwrite', s => s.delete(id)),
+  get: id => getOne('cards', id),
+  remove: async id => { await tx('cards', 'readwrite', s => s.delete(id)); await enqueue('card', id, true); },
 };
 
 // ---- Archivos adjuntos ----
@@ -136,8 +155,16 @@ export const kv = {
     const r = await getOne('kv', key);
     return r ? r.value : fallback;
   },
-  set: (key, value) => tx('kv', 'readwrite', s => s.put({ key, value })),
+  async set(key, value) {
+    await tx('kv', 'readwrite', s => s.put({ key, value }));
+    if (SYNCED_KV.has(key)) {
+      const r = await getOne('kv', 'kvUpdated'); const stamps = (r && r.value) || {}; stamps[key] = Date.now();
+      await tx('kv', 'readwrite', s => s.put({ key: 'kvUpdated', value: stamps }));
+      await enqueue('kv', key);
+    }
+  },
 };
+const SYNCED_KV = new Set(['profile', 'memory', 'settings']);
 
 export const DEFAULT_SETTINGS = {
   apiKey: '',

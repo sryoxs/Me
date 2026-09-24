@@ -6,6 +6,7 @@ import { listen, speak, voiceSupported } from './voice.js';
 import { ask, parseCards, usageToday } from './ai.js';
 import { cardsFromNote, schedule, dueCards, stats as studyStats } from './study.js';
 import { requestNotifPermission, startTicker, suggestFromNotes, dailyBrief } from './reminders.js';
+import { getSyncConfig, saveSyncConfig, syncNow, fullSync, testConnection, startAutoSync, onSync } from './sync.js';
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -440,7 +441,17 @@ async function renderSettings() {
   const s = state.settings = await getSettings();
   $('#set-apikey').value = s.apiKey; $('#set-model-light').value = s.modelLight; $('#set-model-heavy').value = s.modelHeavy;
   $('#set-ask-before-ai').checked = s.askBeforeAI; $('#set-proactive').checked = s.proactive; $('#set-checkin-hour').value = s.checkinHour; $('#set-voice-reply').checked = s.voiceReply;
+  const sc = await getSyncConfig();
+  $('#sync-url').value = sc.url; $('#sync-secret').value = sc.secret; $('#sync-enabled').checked = sc.enabled;
+  await renderSyncStatus();
   await refreshUsage();
+}
+async function renderSyncStatus(extra) {
+  const sc = await getSyncConfig();
+  const last = await kv.get('syncLast', null);
+  const q = Object.keys(await kv.get('syncQueue', {})).length;
+  const el = $('#sync-status'); if (!el) return;
+  el.textContent = extra || (!sc.enabled ? 'Desactivada. Solo se guarda en este dispositivo.' : last ? `Última sincronización ${fmtDate(last.at)} · ${q} cambio${q === 1 ? '' : 's'} pendiente${q === 1 ? '' : 's'}` : 'Activa. Aún no se ha sincronizado.');
 }
 async function persistSettings() {
   const s = {
@@ -554,6 +565,30 @@ function bind() {
   };
   // Ajustes
   ['#set-apikey', '#set-model-light', '#set-model-heavy', '#set-ask-before-ai', '#set-proactive', '#set-checkin-hour', '#set-voice-reply'].forEach(s => $(s).onchange = persistSettings);
+  // Sincronización
+  $('#sync-enabled').onchange = async e => { const sc = await getSyncConfig(); await saveSyncConfig({ ...sc, enabled: e.target.checked }); renderSyncStatus(); if (e.target.checked) syncNow(); };
+  $('#btn-sync-connect').onclick = async () => {
+    const url = $('#sync-url').value.trim(), secret = $('#sync-secret').value;
+    if (!url || !secret) { toast('Pon la dirección y la frase secreta'); return; }
+    try {
+      renderSyncStatus('Probando conexión…');
+      await testConnection(url, secret);
+      await saveSyncConfig({ url, secret, enabled: true }); $('#sync-enabled').checked = true;
+      renderSyncStatus('Conectado. Sincronizando todo tu cerebro…');
+      const r = await fullSync();
+      if (r.error) throw new Error(r.error);
+      await loadNotes(); renderSyncStatus(); toast(`Sincronizado: ${r.pushed} enviados, ${r.pulled} recibidos`);
+    } catch (err) { renderSyncStatus('Error: ' + err.message); toast(err.message, 5000); }
+  };
+  $('#btn-sync-now').onclick = async () => { const r = await syncNow(); if (r.skipped) toast('Activa la sincronización primero'); else if (r.error) toast(r.error, 5000); else { await loadNotes(); toast(`Sincronizado: ${r.pushed} enviados, ${r.pulled} recibidos`); } renderSyncStatus(); };
+  onSync(evt => {
+    const badge = $('#sync-badge'); badge.hidden = false;
+    badge.textContent = evt.state === 'syncing' ? '☁️…' : evt.state === 'error' ? '☁️!' : '☁️';
+    badge.title = evt.state === 'error' ? evt.message : 'Sincronizado';
+    if (evt.state === 'ok' && evt.pulled > 0) { loadNotes(); if (state.view === 'recordatorios') renderReminders(); if (state.view === 'estudio') renderStudy(); }
+    if (state.view === 'ajustes') renderSyncStatus();
+  });
+
   $('#btn-export').onclick = async () => {
     const data = await exportAll();
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -584,9 +619,12 @@ async function init() {
   const v = location.hash.slice(1);
   showView(v && $('#view-' + v) ? v : 'inicio');
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Sincronización automática (solo si está configurada)
+  const sc = await getSyncConfig();
+  if (sc.enabled) { syncNow({ silent: true }).then(() => loadNotes()); startAutoSync(60000); }
   // Ejemplo de bienvenida la primera vez
   if (!state.notes.length && !(await kv.get('welcomed'))) {
-    await notes.save({ title: 'Bienvenido a Brainer', type: 'nota', body: 'Este es tu cerebro virtual. Todo se guarda en tu dispositivo.\n\n## Cómo usarlo\n- Crea notas y enlázalas con [[Bienvenido a Brainer]] para ver conexiones en el grafo.\n- Usa etiquetas con almohadilla para agrupar, por ejemplo #estudio\n- Pulsa el micrófono y di: “búscame la nota de bienvenida”.\n- Di “recuérdame repasar mañana a las 8”.\n\n## Estudio\n**Repetición espaciada**: Brainer te pregunta lo que aprendes justo antes de que lo olvides.\nTérmino: definición → así Brainer genera tarjetas automáticamente.\n\n#brainer #guia' });
+    await notes.save({ id: 'welcome', title: 'Bienvenido a Brainer', type: 'nota', body: 'Este es tu cerebro virtual. Todo se guarda en tu dispositivo.\n\n## Cómo usarlo\n- Crea notas y enlázalas con [[Bienvenido a Brainer]] para ver conexiones en el grafo.\n- Usa etiquetas con almohadilla para agrupar, por ejemplo #estudio\n- Pulsa el micrófono y di: “búscame la nota de bienvenida”.\n- Di “recuérdame repasar mañana a las 8”.\n\n## Estudio\n**Repetición espaciada**: Brainer te pregunta lo que aprendes justo antes de que lo olvides.\nTérmino: definición → así Brainer genera tarjetas automáticamente.\n\n#brainer #guia' });
     await kv.set('welcomed', true);
     await loadNotes();
   }

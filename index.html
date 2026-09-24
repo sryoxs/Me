@@ -22,6 +22,7 @@
         <span class="brand-dot"></span>
         <span class="brand-name">Brainer</span>
         <span class="brand-status" id="brand-status">local</span>
+        <span class="brand-status" id="sync-badge" hidden title="Sincronización">☁️</span>
       </div>
       <button class="icon-btn" id="btn-voice" aria-label="Hablar con Brainer" title="Hablar con Brainer">🎤</button>
     </header>
@@ -193,8 +194,21 @@
         </div>
 
         <div class="card">
-          <h3>Respaldo y dispositivos</h3>
-          <p class="muted small">Exporta tu cerebro completo e impórtalo en tu otro dispositivo. La sincronización automática se puede activar después.</p>
+          <h3>Sincronizar entre dispositivos</h3>
+          <p class="muted small">Brainer Sync guarda tu cerebro en tu propia cuenta de Cloudflare (gratis). Pon la misma dirección y frase secreta en cada dispositivo y se mantienen iguales solos. La frase se guarda solo aquí.</p>
+          <input id="sync-url" type="text" placeholder="https://brainer-sync.TU-CUENTA.workers.dev" autocomplete="off">
+          <input id="sync-secret" type="password" placeholder="Frase secreta (la misma que pusiste en GitHub como BRAINER_SECRET)" autocomplete="off">
+          <div class="row">
+            <button class="btn primary" id="btn-sync-connect">Conectar y sincronizar todo</button>
+            <button class="btn ghost" id="btn-sync-now">Sincronizar ahora</button>
+            <label class="check"><input type="checkbox" id="sync-enabled"> Activa</label>
+          </div>
+          <div id="sync-status" class="muted small"></div>
+        </div>
+
+        <div class="card">
+          <h3>Respaldo</h3>
+          <p class="muted small">Exporta tu cerebro completo (incluye adjuntos) e impórtalo donde quieras.</p>
           <div class="row">
             <button class="btn ghost" id="btn-export">⬇️ Exportar cerebro</button>
             <label class="btn ghost" for="import-input">⬆️ Importar cerebro</label>

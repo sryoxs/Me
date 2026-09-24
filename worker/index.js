@@ -34,10 +34,20 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     const url = new URL(request.url);
     if (url.pathname === '/health') return json({ ok: true });
-    if (!['/sync', '/engine/pending', '/engine/vault', '/ai/chat', '/ai/stt', '/ai/tts', '/ai/debug'].includes(url.pathname)) return json({ error: 'No encontrado' }, 404);
+    if (!['/sync', '/engine/pending', '/engine/vault', '/ai/chat', '/ai/stt', '/ai/tts', '/ai/debug', '/tools/youtube', '/tools/search', '/tools/wiki'].includes(url.pathname)) return json({ error: 'No encontrado' }, 404);
     if (!(await authorized(request, env))) return json({ error: 'Frase secreta incorrecta' }, 401);
 
     const now = Date.now();
+    // --- Sentidos hacia fuera: videos, fuentes y Wikipedia (sin claves) ---
+    if (url.pathname.startsWith('/tools/')) {
+      const q = (url.searchParams.get('q') || '').trim().slice(0, 200);
+      if (!q) return json({ error: 'Falta q' }, 400);
+      try {
+        if (url.pathname === '/tools/youtube') return json({ q, videos: await youtubeSearch(q) });
+        if (url.pathname === '/tools/search') return json({ q, results: await webSearch(q) });
+        if (url.pathname === '/tools/wiki') return json({ q, ...(await wikiSummary(q)) });
+      } catch (err) { return json({ error: 'Herramienta no disponible: ' + (err && err.message ? err.message : String(err)) }, 502); }
+    }
     // --- IA en tu Cloudflare (Workers AI) ---
     if (url.pathname.startsWith('/ai/')) {
       if (!env.AI) return json({ error: 'Workers AI no está activado en este Worker' }, 503);
@@ -180,4 +190,74 @@ async function aiDebug(env) {
     try { const r = await env.AI.run(m, input); out[m + ' ' + JSON.stringify(input)] = { ok: true, type: r && r.constructor && r.constructor.name, keys: r && typeof r === 'object' && !(r instanceof ReadableStream) ? Object.keys(r) : null }; } catch (e) { out[m + ' ' + JSON.stringify(input)] = { ok: false, error: String(e && e.message || e) }; }
   }
   return json(out);
+}
+
+
+// ---------- Herramientas hacia fuera ----------
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+
+// Videos de YouTube: leemos la página de resultados y sacamos los videoRenderer del JSON inicial.
+async function youtubeSearch(q) {
+  const res = await fetch('https://www.youtube.com/results?search_query=' + encodeURIComponent(q) + '&hl=es&gl=ES', { headers: { 'user-agent': UA, 'accept-language': 'es-ES,es;q=0.9' } });
+  const html = await res.text();
+  const out = []; const seen = new Set();
+  const re = /"videoRenderer":\{"videoId":"([\w-]{11})".*?"title":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/g;
+  let m;
+  while ((m = re.exec(html)) && out.length < 8) {
+    if (seen.has(m[1])) continue; seen.add(m[1]);
+    const seg = html.slice(m.index, m.index + 6000);
+    const ch = /"ownerText":\{"runs":\[\{"text":"((?:[^"\\]|\\.)*)"/.exec(seg);
+    const len = /"lengthText":\{[^}]*"simpleText":"([^"]+)"/.exec(seg);
+    const views = /"viewCountText":\{"simpleText":"([^"]+)"/.exec(seg);
+    out.push({ id: m[1], title: JSON.parse('"' + m[2] + '"'), channel: ch ? JSON.parse('"' + ch[1] + '"') : '', length: len ? len[1] : '', views: views ? views[1] : '', url: 'https://www.youtube.com/watch?v=' + m[1], thumb: 'https://i.ytimg.com/vi/' + m[1] + '/hqdefault.jpg' });
+  }
+  return out;
+}
+
+// Fuentes web sin clave: DuckDuckGo (html y lite), Bing RSS y, si todo falla, Wikipedia.
+const strip = t => String(t || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
+function unDdg(href) { const u = /uddg=([^&]+)/.exec(href); return u ? decodeURIComponent(u[1]) : href; }
+async function searchDdgHtml(q) {
+  const res = await fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent(q) + '&kl=es-es', { headers: { 'user-agent': UA, 'accept-language': 'es-ES,es;q=0.9' } });
+  const html = await res.text(); const out = [];
+  const re = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g;
+  let m; while ((m = re.exec(html)) && out.length < 8) out.push({ title: strip(m[2]), url: unDdg(m[1]), snippet: strip(m[3]) });
+  return out;
+}
+async function searchDdgLite(q) {
+  const res = await fetch('https://lite.duckduckgo.com/lite/', { method: 'POST', headers: { 'user-agent': UA, 'content-type': 'application/x-www-form-urlencoded' }, body: 'q=' + encodeURIComponent(q) + '&kl=es-es' });
+  const html = await res.text(); const out = [];
+  const re = /<a[^>]+class="result-link"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<td[^>]+class="result-snippet"[^>]*>([\s\S]*?)<\/td>/g;
+  let m; while ((m = re.exec(html)) && out.length < 8) out.push({ title: strip(m[2]), url: unDdg(m[1]), snippet: strip(m[3]) });
+  return out;
+}
+async function searchBingRss(q) {
+  const res = await fetch('https://www.bing.com/search?format=rss&setlang=es&q=' + encodeURIComponent(q), { headers: { 'user-agent': UA, 'accept-language': 'es-ES,es;q=0.9' } });
+  const xml = await res.text(); const out = [];
+  const re = /<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>([\s\S]*?)<\/link>[\s\S]*?<description>([\s\S]*?)<\/description>/g;
+  let m; while ((m = re.exec(xml)) && out.length < 8) out.push({ title: strip(m[1].replace(/<!\[CDATA\[|\]\]>/g, '')), url: strip(m[2]), snippet: strip(m[3].replace(/<!\[CDATA\[|\]\]>/g, '')) });
+  return out;
+}
+async function searchWikiList(q) {
+  const s = await fetch('https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + encodeURIComponent(q) + '&format=json&srlimit=5&utf8=1', { headers: { 'user-agent': 'Brainer/1.0' } }).then(r => r.json());
+  return ((s && s.query && s.query.search) || []).map(h => ({ title: h.title, url: 'https://es.wikipedia.org/wiki/' + encodeURIComponent(h.title.replace(/ /g, '_')), snippet: strip(h.snippet) }));
+}
+// Prueba proveedores en orden y devuelve el primero que traiga algo pertinente (que mencione la consulta).
+async function webSearch(q) {
+  const words = q.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  const relevant = r => !words.length || words.some(w => (r.title + ' ' + r.snippet).toLowerCase().includes(w));
+  for (const fn of [searchDdgHtml, searchDdgLite, searchBingRss]) {
+    try { const r = (await fn(q)).filter(x => x.url && x.title); if (r.length && r.filter(relevant).length >= Math.min(2, r.length)) return r.map(x => ({ ...x, source: fn.name.replace('search', '').toLowerCase() })); } catch (_) { /* siguiente */ }
+  }
+  try { return (await searchWikiList(q)).map(x => ({ ...x, source: 'wikipedia' })); } catch (_) { return []; }
+}
+
+// Wikipedia en español: resumen y enlace.
+async function wikiSummary(q) {
+  const s = await fetch('https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=' + encodeURIComponent(q) + '&format=json&srlimit=1&utf8=1', { headers: { 'user-agent': 'Brainer/1.0' } }).then(r => r.json());
+  const hit = s && s.query && s.query.search && s.query.search[0];
+  if (!hit) return { found: false };
+  const title = hit.title;
+  const sum = await fetch('https://es.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(title), { headers: { 'user-agent': 'Brainer/1.0' } }).then(r => r.json());
+  return { found: true, title, extract: sum.extract || '', url: (sum.content_urls && sum.content_urls.desktop && sum.content_urls.desktop.page) || ('https://es.wikipedia.org/wiki/' + encodeURIComponent(title)), thumb: sum.thumbnail ? sum.thumbnail.source : null };
 }

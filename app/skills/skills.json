@@ -16,6 +16,13 @@
       "descripcion": "Tarjetas que tocan hoy con repetición espaciada."
     },
     {
+      "id": "leccion",
+      "nombre": "Lección guiada",
+      "icono": "cards",
+      "nivel": 2,
+      "descripcion": "Videos, fórmulas, ejercicio resuelto paso a paso, gráfica y fuentes de un tema. Di «voy a estudiar…»."
+    },
+    {
       "id": "parte-del-dia",
       "nombre": "Parte del día",
       "icono": "news",

@@ -36,7 +36,7 @@ export async function transcribe(blob) {
 }
 
 // texto → reproduce la voz. Devuelve una promesa que termina cuando acaba de hablar.
-let currentAudio = null;
+let currentAudio = null, currentResolve = null;
 export async function speakCloud(text, { speaker = 'carina', onStart } = {}) {
   const { url, headers } = await endpoint('/ai/tts');
   const res = await fetch(url, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ text, speaker }) });
@@ -46,13 +46,15 @@ export async function speakCloud(text, { speaker = 'carina', onStart } = {}) {
   const audio = new Audio(URL.createObjectURL(blob));
   currentAudio = audio;
   return new Promise((resolve, reject) => {
+    currentResolve = resolve;
     audio.onplay = () => onStart && onStart();
-    audio.onended = () => { URL.revokeObjectURL(audio.src); if (currentAudio === audio) currentAudio = null; resolve(); };
+    audio.onended = () => { URL.revokeObjectURL(audio.src); if (currentAudio === audio) { currentAudio = null; currentResolve = null; } resolve(); };
     audio.onerror = () => reject(new Error('No se pudo reproducir la voz'));
     audio.play().catch(err => reject(err));
   });
 }
-export function stopSpeaking() { if (currentAudio) { try { currentAudio.pause(); } catch (_) { /* nada */ } currentAudio = null; } }
+// Corta la voz; la promesa de speakCloud termina igual (interrupción limpia).
+export function stopSpeaking() { if (currentAudio) { try { currentAudio.pause(); } catch (_) { /* nada */ } currentAudio = null; } if (currentResolve) { const r = currentResolve; currentResolve = null; r(); } }
 
 // Grabación con MediaRecorder. Modo manual: sigue grabando hasta que llames a stop() (o silencio largo / máximo).
 // Devuelve { done: Promise<Blob|null>, stop() }.
@@ -104,4 +106,43 @@ export function recordClip({ maxMs = 15000, silenceMs = 1300, onLevel, expose } 
 export function inAppBrowser() {
   const ua = navigator.userAgent || '';
   return /FBAN|FBAV|Instagram|TikTok|Twitter|Line\/|Snapchat|BytedanceWebview|GSA\//i.test(ua) || (/iPhone|iPad/.test(ua) && !/Safari/.test(ua) && !window.navigator.standalone);
+}
+
+// ¿Brainer está hablando ahora mismo?
+export function isSpeaking() { return !!currentAudio && !currentAudio.paused && !currentAudio.ended; }
+
+// Herramientas sin clave en tu Worker: videos de YouTube, fuentes web y Wikipedia en español.
+async function tool(path, q) {
+  const { url, headers } = await endpoint(path);
+  const res = await fetch(url + '?q=' + encodeURIComponent(q), { headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+  return data;
+}
+export const tools = {
+  youtube: async q => (await tool('/tools/youtube', q)).videos || [],
+  search: async q => (await tool('/tools/search', q)).results || [],
+  wiki: q => tool('/tools/wiki', q),
+};
+
+// Vigía de interrupción: mientras Brainer habla, escucha el micrófono y avisa si tú empiezas a hablar
+// (umbral alto para no confundirse con su propia voz saliendo por el altavoz). Devuelve stop().
+export function bargeInWatcher({ threshold = 0.075, holdMs = 320, onVoice } = {}) {
+  let stopped = false, stream, ctx, timer;
+  (async () => {
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (_) { return; }
+    if (stopped) { stream.getTracks().forEach(t => t.stop()); return; }
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = ctx.createMediaStreamSource(stream); const an = ctx.createAnalyser(); an.fftSize = 1024; src.connect(an);
+    const buf = new Uint8Array(an.fftSize); let loudSince = 0;
+    timer = setInterval(() => {
+      an.getByteTimeDomainData(buf);
+      let sum = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+      const rms = Math.sqrt(sum / buf.length);
+      if (rms > threshold) { if (!loudSince) loudSince = Date.now(); else if (Date.now() - loudSince > holdMs) { stop(); onVoice && onVoice(); } }
+      else loudSince = 0;
+    }, 60);
+  })();
+  function stop() { if (stopped) return; stopped = true; clearInterval(timer); if (stream) stream.getTracks().forEach(t => t.stop()); if (ctx) ctx.close().catch(() => {}); }
+  return stop;
 }

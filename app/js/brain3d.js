@@ -2,7 +2,7 @@
 // Tus notas son puntos brillantes en la esfera; los [[enlaces]] entre notas son líneas fuertes;
 // las partículas de fondo se conectan por cercanía. Todo en canvas 2D con proyección 3D propia.
 
-const CYAN = [56, 225, 255];
+const CYAN = [192, 132, 252]; // violeta: el color de la red
 const TYPE_RGB = {
   nota: [56, 225, 255], captura: [56, 225, 255], informe: [160, 120, 255], tarea: [255, 184, 77], idea: [61, 220, 151],
   proyecto: [255, 120, 200], conexion: [120, 255, 240], flashcard: [255, 143, 216],

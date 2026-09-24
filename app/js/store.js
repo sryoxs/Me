@@ -149,7 +149,7 @@ export const requests = {
   all: () => getAll('requests'),
   get: id => getOne('requests', id),
   async save(r) {
-    const item = { id: r.id || uid(), skill: r.skill, prompt: r.prompt || '', status: r.status || 'pendiente', created: r.created || Date.now(), reportId: r.reportId || null, updated: Date.now() };
+    const item = { id: r.id || uid(), skill: r.skill, prompt: r.prompt || '', effort: r.effort || 'medio', status: r.status || 'pendiente', created: r.created || Date.now(), reportId: r.reportId || null, updated: Date.now() };
     await tx('requests', 'readwrite', s => s.put(item));
     await enqueue('request', item.id);
     return item;

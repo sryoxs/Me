@@ -17,14 +17,32 @@ const SKILL_HINTS = [
 
 const HEAVY = /(investiga|a fondo|profund|completo|detallado|redacta|escribe (un|una) (ensayo|informe|articulo)|analiza|compara|planifica (mi|el) (mes|semestre|curso)|traduce|corrige|explica(me)? (bien|paso a paso)|resuelve|demuestra|calcula)/;
 
-// Devuelve { tier: 1|2|3, intent, reason, skill?, prompt? }
+// Lección guiada: «voy a estudiar elipses», «enséñame derivadas», «clase de fotosíntesis»
+const LESSON = /^(?:brainer[, ]*)?(?:hoy\s+)?(?:voy a estudiar|quiero estudiar|vamos a estudiar|estudiemos|estudiar|ensename|enseñame|explica(?:me)? bien|dame una (?:clase|leccion) (?:de|sobre)|(?:una )?(?:clase|leccion) (?:de|sobre)|quiero aprender|aprender|explicame|repasemos|repasar)\s+(?:el tema de |la |el |los |las |sobre |de )?(.{3,80}?)(?:\s+(?:paso a paso|bien|a fondo|desde cero|con ejemplos|con ejercicios))*[.!?]*$/;
+// ¿Está listo mi trabajo? → estado de las peticiones y lectura del último informe
+const STATUS = /(esta listo|ya esta (listo|hecho|mi|el)|ya termin|termino|terminaron|como va|como van|hay novedades|que hay de nuevo|llego (el|mi|algun) informe|mi trabajo|mis peticiones|que hicieron|que hizo|resultado de|novedades)/;
+// Nivel de esfuerzo para el trabajo en la nube: bajo (rápido y barato), medio, alto (a fondo, con más modelo)
+export function parseEffort(t) {
+  if (/(esfuerzo|nivel|modo)\s+(alto|maximo|profundo)|a fondo|profund|exhaustiv|detallad|completo|con calma|sin prisa|de alta calidad/.test(t)) return 'alto';
+  if (/(esfuerzo|nivel|modo)\s+(bajo|minimo|rapido)|rapido|rapidito|breve|corto|ligero|barato|sin gastar/.test(t)) return 'bajo';
+  return 'medio';
+}
+export const EFFORT_LABEL = { bajo: 'esfuerzo bajo', medio: 'esfuerzo medio', alto: 'esfuerzo alto' };
+
+// Devuelve { tier: 0|1|2|3, intent, reason, skill?, prompt?, effort?, topic? }
 export function route(text, { hasSemantic = false } = {}) {
   const t = normalize(text);
   const intent = parseIntent(text);
 
+  // Estado del trabajo en la nube
+  if (STATUS.test(t) && t.split(' ').length <= 12 && !/recuerdame|crea/.test(t)) return { tier: 1, intent: { intent: 'status' }, reason: 'estado de tus peticiones' };
+  // Lección guiada (videos, fórmulas, ejercicio, gráfica, fuentes)
+  const lm = LESSON.exec(t);
+  if (lm) return { tier: 2, intent: { intent: 'lesson' }, topic: lm[1].trim(), reason: 'lección guiada con tu nube' };
+
   // Habilidades explícitas → Nivel 3 con la habilidad adecuada
   for (const h of SKILL_HINTS) {
-    if (h.re.test(t)) return { tier: 3, intent: { intent: 'skill' }, skill: h.skill, prompt: text, reason: `pide la habilidad “${h.skill}”` };
+    if (h.re.test(t)) return { tier: 3, intent: { intent: 'skill' }, skill: h.skill, prompt: text, effort: parseEffort(t), reason: `pide la habilidad “${h.skill}”` };
   }
   // Acciones locales claras → Nivel 1
   if (['reminder', 'create', 'study', 'graph', 'brief'].includes(intent.intent)) {
@@ -32,7 +50,7 @@ export function route(text, { hasSemantic = false } = {}) {
   }
   // Trabajo pesado → Nivel 3 (investigación genérica)
   if (HEAVY.test(t) && t.split(' ').length >= 3) {
-    return { tier: 3, intent: { intent: 'skill' }, skill: 'examinar', prompt: 'resume el tema: ' + text, reason: 'trabajo exigente: lo hace Claude Code' };
+    return { tier: 3, intent: { intent: 'skill' }, skill: 'examinar', prompt: 'resume el tema: ' + text, effort: parseEffort(t), reason: 'trabajo exigente: lo hace Claude Code' };
   }
   // Búsqueda: Nivel 2 si hay red neuronal semántica lista, si no Nivel 1 por palabras
   if (intent.intent === 'search') {

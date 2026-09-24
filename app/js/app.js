@@ -1,6 +1,7 @@
 // Brainer: lógica principal de la interfaz.
 import { notes, reminders, cards, files, requests, kv, getSettings, saveSettings, exportAll, importAll, wipeAll, uid } from './store.js';
-import { route, TIER_LABEL } from './neuro.js';
+import { route, TIER_LABEL, EFFORT_LABEL } from './neuro.js';
+import { buildLesson, renderLesson, mountLesson, lessonSpeech, lessonMarkdown, loadKatex } from './leccion.js';
 import { loadDemo, removeDemo } from './demo.js';
 const STATE_LABEL = { inactivo: 'Listo', escuchando: 'Escuchando', pensando: 'Procesando', hablando: 'Hablando', error: 'Error' };
 import { loadWhisper, recordUntilSilence, transcribe, embed, indexNotes, semanticSearch, extractiveSummary, onProgress, embeddingsReady, whisperReady } from './local-ai.js';
@@ -8,7 +9,7 @@ import { search, parseIntent, normalize } from './search.js';
 import { Brain3D } from './brain3d.js';
 import { listen, voiceSupported } from './voice.js';
 import { converse, welcomeLine, idleThought, listVoices, speak as personaSpeak, tone } from './persona.js';
-import { chat as cloudChat, transcribe as cloudTranscribe, speakCloud, stopSpeaking, recordClip, startRecording, cloudReady, inAppBrowser } from './cloud-ai.js';
+import { chat as cloudChat, transcribe as cloudTranscribe, speakCloud, stopSpeaking, isSpeaking, recordClip, startRecording, bargeInWatcher, cloudReady, inAppBrowser } from './cloud-ai.js';
 import { ask, parseCards, usageToday } from './ai.js';
 import { cardsFromNote, schedule, dueCards, stats as studyStats } from './study.js';
 import { requestNotifPermission, startTicker, suggestFromNotes, dailyBrief } from './reminders.js';
@@ -34,7 +35,7 @@ const ICONS = {
   check: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>',
   megaphone: '<svg viewBox="0 0 24 24"><path d="M3 11v2a2 2 0 0 0 2 2h2l6 4V5L7 9H5a2 2 0 0 0-2 2zM17 9a4 4 0 0 1 0 6"/></svg>',
 };
-const TYPE_LABEL = { nota: 'nota', captura: 'captura', informe: 'informe', tarea: 'tarea', idea: 'idea', proyecto: 'proyecto', conexion: 'conexión', flashcard: 'tarjeta' };
+const TYPE_LABEL = { nota: 'nota', captura: 'captura', informe: 'informe', tarea: 'tarea', idea: 'idea', proyecto: 'proyecto', conexion: 'conexión', flashcard: 'tarjeta', leccion: 'lección' };
 
 const state = { view: 'inicio', notes: [], activeTag: null, currentNote: null, graph: null, studyQueue: [], studyCard: null, showAnswer: false, settings: null };
 
@@ -68,7 +69,7 @@ function addMsg(role, html, { speakText, always } = {}) {
   el.innerHTML = html;
   $('#chat').appendChild(el);
   el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  if (role === 'brainer' && speakText && state.settings.voiceReply && (state.lastInputWasVoice || (always && state.userGestured))) speakHud(speakText);
+  if (role === 'brainer' && speakText && state.settings.voiceReply && (state.lastInputWasVoice || (always && state.userGestured))) state.speaking = speakHud(speakText).catch(() => {});
   return el;
 }
 
@@ -105,7 +106,8 @@ async function brainSystemPrompt(context) {
     p.voice ? `Cómo le gusta que suenes: ${p.voice}` : '', p.rules ? `Límites que nunca se tocan: ${p.rules}` : '',
     b ? `Estado de hoy: ${b}` : '',
     `Brainer también ayuda con proyectos, código, ideas de negocio y trabajo diario, no solo estudio. Tiene un equipo de agentes (Arquitecto, Programador, Tester, Marketing, Investigador, Archivista, Tejedor, Escriba) que trabajan con Claude Code cuando la tarea es grande.`,
-    `Si ${name} pide algo que requiere trabajo real (investigar a fondo, construir una app, escribir un informe largo), dile que se lo pasas a Claude Code y que el resultado llegará a su bóveda; no lo hagas tú.`,
+    `Si ${name} pide algo que requiere trabajo real (investigar a fondo, construir una app, escribir un informe largo), dile que se lo pasas a Claude Code y que el resultado llegará a su bóveda; no lo hagas tú. Puede pedir el esfuerzo: bajo (rápido y sin gastar), medio o alto (a fondo).`,
+    `Si ${name} quiere estudiar un tema, sugiérele decir "voy a estudiar <tema>": Brainer arma una lección con videos, fórmulas, un ejercicio resuelto paso a paso, gráfica y fuentes.`,
     facts && facts.length ? `Lo que ya sabes de ${name} por conversaciones anteriores:\n${facts.map(f => '- ' + f.text).join('\n')}` : '',
     context ? `Notas de la bóveda de ${name} relevantes ahora (cítalas por título si las usas; no inventes notas):\n${context}` : `No hay notas relevantes para esto en la bóveda.`,
     `Al final de tu respuesta, si ${name} reveló algo nuevo y estable sobre sí mismo (qué estudia, un proyecto, un gusto, cómo pide las cosas, una corrección a ti), añade una última línea que empiece exactamente con [memoria] y una frase corta en tercera persona. Si no hay nada nuevo, no añadas esa línea.`,
@@ -157,6 +159,8 @@ async function handleInput(text, { fromVoice = false } = {}) {
     }
     if (state.pendingReminder || state.pendingCheckin) return await handleTier1(text, parseIntent(text), fromVoice);
     const r = route(text, { hasSemantic: await embeddingsReady() });
+    if (r.intent.intent === 'status') { showTier(r); return await handleStatus(); }
+    if (r.intent.intent === 'lesson') { showTier(r); return await handleLesson(r.topic); }
     // Acciones concretas siempre locales: recordatorios, crear notas, repaso, red, resumen
     const action = r.tier === 1 && ['reminder', 'create', 'study', 'graph', 'brief'].includes(r.intent.intent);
     if (r.tier === 3) { showTier(r); return await handleTier3(r, text); }
@@ -180,12 +184,81 @@ async function handleInput(text, { fromVoice = false } = {}) {
 
 // Nivel 3: la petición viaja a la bóveda y Claude Code la recoge.
 async function handleTier3(r, text) {
-  const req = await requests.save({ skill: r.skill, prompt: r.prompt || text });
+  const effort = r.effort || 'medio';
+  const req = await requests.save({ skill: r.skill, prompt: r.prompt || text, effort });
   const sync = await syncNow({ silent: true });
-  const where = sync && !sync.skipped && !sync.error ? 'Ya está en tu bóveda sincronizada; Claude Code la recoge cuando le digas «procesa mis peticiones» (el latido automático está apagado hasta que el flujo salga bien a mano) y el resultado aparecerá aquí.' : 'Activa la sincronización en Ajustes para que Claude Code pueda recogerla.';
-  addMsg('brainer', `Esto es trabajo de verdad, se lo paso a <b>Claude Code</b> con la habilidad <b>${esc(r.skill)}</b>. ${where}${tierNote(r)}`, { speakText: 'Se lo paso a Claude Code. Te avisaré cuando llegue el informe.' });
+  const where = sync && !sync.skipped && !sync.error ? 'Ya viaja a tu nube: el equipo de Claude Code la recoge en su próxima ronda (cada hora) y trabaja mientras tú haces otra cosa. Cuando vuelvas, pregúntame «¿está listo mi trabajo?» y te leo el resultado.' : 'Activa la sincronización en Ajustes para que Claude Code pueda recogerla.';
+  const cost = effort === 'bajo' ? 'rápido y sin gastar casi nada' : effort === 'alto' ? 'a fondo, con el modelo grande' : 'con esfuerzo medio';
+  addMsg('brainer', `Esto es trabajo de verdad. Se lo paso a <b>Claude Code</b> con la habilidad <b>${esc(r.skill)}</b>, ${cost}. ${where}<span class="effort e-${effort}">${esc(EFFORT_LABEL[effort])}</span>${tierNote(r)}`, { speakText: `Se lo paso a Claude Code, ${cost}. Cuando vuelvas, pregúntame si está listo.` });
   renderCockpit();
   return req;
+}
+
+// «¿Está listo mi trabajo?»: sin clics. Brainer sincroniza, cuenta lo pendiente y lee el último informe.
+async function handleStatus() {
+  hud('pensando', 'consultando tu nube…');
+  try { const s = await syncNow({ silent: true }); if (s && !s.error && !s.skipped) await loadNotes(); } catch (_) { /* sin nube: lo local */ }
+  const reqs = (await requests.all()).sort((a, b) => b.created - a.created);
+  const pend = reqs.filter(r => r.status === 'pendiente');
+  const done = reqs.filter(r => r.status === 'hecho');
+  const seen = (await kv.get('reportsSeen', {}));
+  const reports = state.notes.filter(n => (n.tags || []).includes('claude') && (n.type === 'informe' || (n.tags || []).includes('informe'))).sort((a, b) => b.updated - a.updated);
+  const fresh = reports.filter(n => !seen[n.id]);
+  const latest = fresh[0] || reports[0];
+  let html = '', speak = '';
+  if (!reqs.length && !reports.length) { html = 'No tienes trabajo encargado. Pide algo con «ármame…», «investiga…» o pulsa una habilidad, y el equipo lo hará en la nube.'; speak = html; }
+  else {
+    if (pend.length) { html += `<p>En marcha: <b>${pend.length}</b> ${pend.length === 1 ? 'petición' : 'peticiones'} (${pend.map(r => esc(r.skill) + (r.effort ? ' · ' + esc(r.effort) : '')).join(', ')}). El equipo pasa cada hora.</p>`; speak += `Hay ${pend.length} ${pend.length === 1 ? 'petición en marcha' : 'peticiones en marcha'}. `; }
+    if (latest) {
+      const body = stripTags(latest.body).slice(0, 700);
+      html += `<div class="report-inline"><span class="readout">${fresh.length ? 'INFORME NUEVO' : 'ÚLTIMO INFORME'} · ${fmtDate(latest.updated)}</span><h3>${esc(latest.title)}</h3><p>${esc(body)}${latest.body.length > 700 ? '…' : ''}</p><a href="#" class="btn ghost small" data-open="${latest.id}">Abrir completo</a>${fresh.length > 1 ? `<p class="muted small">Y ${fresh.length - 1} más sin leer en la Bóveda.</p>` : ''}</div>`;
+      speak += `${fresh.length ? 'Sí, está listo. ' : 'Lo último que dejó el equipo: '}${latest.title}. ${stripTags(latest.body).slice(0, 420)}`;
+      for (const n of fresh) seen[n.id] = Date.now(); await kv.set('reportsSeen', seen);
+    } else if (!pend.length && done.length) { html += '<p>Todo lo encargado está hecho, pero el informe aún no llegó a este dispositivo. Vuelve a preguntarme en un momento.</p>'; speak += 'Todo está hecho, pero el informe aún no llegó aquí.'; }
+    else if (!latest) { speak += 'Todavía no hay informe. Te avisaré en cuanto llegue.'; html += '<p>Todavía no hay informe. Te avisaré en cuanto llegue.</p>'; }
+  }
+  addMsg('brainer', html + tierNote({ tier: 1, reason: 'estado de tus peticiones' }), { speakText: speak, always: true });
+  renderCockpit();
+}
+
+// Al sincronizar: si llegaron informes nuevos, Brainer los anuncia y lee el resumen sin que pulses nada.
+async function announceReports() {
+  const seen = await kv.get('reportsSeen', {});
+  const known = state.announced || (state.announced = new Set(state.notes.filter(n => (n.tags || []).includes('claude')).map(n => n.id)));
+  const fresh = state.notes.filter(n => (n.tags || []).includes('claude') && !known.has(n.id) && !seen[n.id]).sort((a, b) => b.updated - a.updated);
+  for (const n of fresh) known.add(n.id);
+  if (!fresh.length) return;
+  const n = fresh[0];
+  toast('El equipo dejó un informe nuevo', 6000);
+  const body = stripTags(n.body).slice(0, 500);
+  if (state.view === 'inicio') addMsg('brainer', `<div class="report-inline"><span class="readout">INFORME NUEVO · ${fmtDate(n.updated)}</span><h3>${esc(n.title)}</h3><p>${esc(body)}${n.body.length > 500 ? '…' : ''}</p><a href="#" class="btn ghost small" data-open="${n.id}">Abrir completo</a></div>`, { speakText: `Tu trabajo está listo: ${n.title}. ${body.slice(0, 300)}`, always: true });
+  seen[n.id] = Date.now(); await kv.set('reportsSeen', seen);
+}
+
+// Lección guiada: videos, ideas, fórmulas, ejercicio paso a paso, gráfica y fuentes. Se guarda como nota.
+async function handleLesson(topic) {
+  if (!(await cloudReady())) { await renderConnectCard(); addMsg('brainer', 'Para armar la lección necesito tu nube. Pega la frase secreta arriba y pulsa Conectar.'); return; }
+  const holder = addMsg('brainer', `<span class="working"><i></i>Armando la lección de <b>${esc(topic)}</b>: videos, fórmulas, ejercicio y fuentes…</span>`);
+  const prog = holder.querySelector('.working');
+  try {
+    hud('pensando', 'lección en marcha…');
+    const [L] = await Promise.all([buildLesson(topic, { onProgress: m => { if (prog) prog.lastChild.textContent = ' ' + m; } }), loadKatex().catch(() => null)]);
+    holder.innerHTML = renderLesson(L) + tierNote({ tier: 2, reason: 'lección con tu nube · ' + (L.model || '').split('/').pop() });
+    mountLesson(holder);
+    holder.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Guardar como nota y tarjetas de repaso
+    const note = await notes.save({ title: `Lección · ${L.titulo || topic}`, type: 'leccion', tagText: ['leccion', 'estudio', topic.toLowerCase().split(/\s+/)[0]].join(', '), body: lessonMarkdown(L) });
+    for (const p of (L.preguntas || []).slice(0, 6)) if (p.q && p.a) await cards.save({ q: p.q, a: p.a, noteId: note.id });
+    await loadNotes(); syncNow({ silent: true }).catch(() => {});
+    await learnFromInput(`estudia ${topic}`);
+    const mem = await kv.get('memory', {}); mem.facts = mem.facts || [];
+    const f = `Está estudiando ${topic} (pidió una lección).`; if (!mem.facts.some(x => x.text === f)) { mem.facts.push({ text: f, at: Date.now() }); await kv.set('memory', mem); }
+    if (state.settings.voiceReply && (state.lastInputWasVoice || state.userGestured)) state.speaking = speakHud(lessonSpeech(L)).catch(() => {});
+  } catch (err) {
+    console.warn(err);
+    holder.innerHTML = `No pude armar la lección completa: ${esc(err.message)}. Pídemela otra vez o pregúntame directamente sobre <b>${esc(topic)}</b>.`;
+    hud('error'); setTimeout(() => hud('inactivo'), 1200);
+  }
 }
 
 // Nivel 2: red neuronal local — búsqueda por significado + resumen extractivo.
@@ -361,6 +434,7 @@ async function runSkill(id, { prompt } = {}) {
     if (id === 'planificar-hoy') { showView('inicio'); await renderBrief(true); return; }
     if (id === 'repaso') { showView('estudio'); startStudy(); return; }
   }
+  if (id === 'leccion') { const t = prompt || window.prompt('¿Qué tema estudiamos hoy?'); if (!t) return; showView('inicio'); addMsg('user', esc('voy a estudiar ' + t)); return handleLesson(t); }
   let p = prompt;
   if (!p && id === 'examinar') { p = window.prompt('¿De qué tema quieres que te examine o que te resuma?'); if (!p) return; }
   if (!p && id === 'brief') { p = window.prompt('¿De qué conexión o idea hacemos el brief?'); if (!p) return; }
@@ -394,7 +468,7 @@ async function connectWithSecret(secret) {
     const r = await fullSync(); if (r.error) throw new Error(r.error);
     await loadNotes(); await renderConnectCard(); renderCockpit();
     const prof = await kv.get('profile', {});
-    addMsg('brainer', 'Conectado a tu nube. Ya puedo oírte, hablarte y conversar de verdad. Pulsa el micrófono, habla, y vuelve a pulsarlo para enviar.', { speakText: `Conectado, ${prof.name || 'Smith'}. Ya puedo oírte y hablarte. Pulsa el micrófono, habla, y vuelve a pulsarlo para enviar.`, always: true });
+    addMsg('brainer', 'Conectado a tu nube. Ya puedo oírte, hablarte y conversar de verdad. Pulsa el micrófono una vez y hablamos seguido, como una llamada.', { speakText: `Conectado, ${prof.name || 'Smith'}. Ya puedo oírte y hablarte. Pulsa el micrófono una vez y hablamos seguido.`, always: true });
     hud('inactivo'); return true;
   } catch (err) { hud('error'); addMsg('brainer', `No pude conectar: ${esc(err.message)}. Revisa la frase e inténtalo de nuevo.`); setTimeout(() => hud('inactivo'), 1500); return false; }
 }
@@ -404,7 +478,7 @@ async function renderCockpit() {
   const tm = $('#team'); if (tm) tm.innerHTML = team.map(a => `<div class="agent"><span class="ag-head">${ICONS[a.icono] || ICONS.spark}<b>${esc(a.nombre)}</b></span><small>${esc(a.rol)}</small></div>`).join('');
   const skills = await loadSkills();
   const sk = $('#skills'); if (sk) sk.innerHTML = skills.map(s => `
-    <button class="skill" data-skill="${s.id}"><span class="sk-head">${ICONS[s.icono] || ICONS.spark}<b>${esc(s.nombre)}</b></span><small>${esc(s.descripcion)}</small><span class="lvl ${s.nivel === 3 ? 'l3' : ''}">${s.nivel === 3 ? 'Claude Code' : 'instantáneo'}</span></button>`).join('');
+    <button class="skill" data-skill="${s.id}"><span class="sk-head">${ICONS[s.icono] || ICONS.spark}<b>${esc(s.nombre)}</b></span><small>${esc(s.descripcion)}</small><span class="lvl ${s.nivel === 3 ? 'l3' : ''}">${s.nivel === 3 ? 'Claude Code · en la nube' : s.nivel === 2 ? 'tu nube' : 'instantáneo'}</span></button>`).join('');
   const [rems, reqs, last] = await Promise.all([reminders.all(), requests.all(), kv.get('syncLast', null)]);
   const start = new Date(); start.setHours(0, 0, 0, 0); const end = new Date(start); end.setDate(end.getDate() + 1);
   const today = rems.filter(r => !r.done && !r.suggested && r.when >= start.getTime() && r.when < end.getTime()).sort((a, b) => a.when - b.when);
@@ -422,7 +496,7 @@ async function renderCockpit() {
 async function renderRequests() {
   const el = $('#requests-list'); if (!el) return;
   const reqs = (await requests.all()).sort((a, b) => b.created - a.created).slice(0, 12);
-  el.innerHTML = reqs.length ? reqs.map(r => `<div class="req"><span class="st ${r.status}">${esc(r.status)}</span><span class="grow">${esc(r.skill)} — ${esc((r.prompt || '').slice(0, 80))}</span>${r.reportId ? `<a href="#" data-open="${r.reportId}">ver informe</a>` : ''}<button class="icon-btn" data-req-del="${r.id}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button></div>`).join('') : '<p class="muted small">Sin peticiones todavía.</p>';
+  el.innerHTML = reqs.length ? reqs.map(r => `<div class="req"><span class="st ${r.status}">${esc(r.status)}</span><span class="grow">${esc(r.skill)}${r.effort ? ` <em class="effort e-${esc(r.effort)}">${esc(r.effort)}</em>` : ''} — ${esc((r.prompt || '').slice(0, 80))}</span>${r.reportId ? `<a href="#" data-open="${r.reportId}">ver informe</a>` : ''}<button class="icon-btn" data-req-del="${r.id}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button></div>`).join('') : '<p class="muted small">Sin peticiones todavía.</p>';
 }
 
 async function runDemo() {
@@ -719,7 +793,7 @@ async function renderSettings() {
   $('#set-ask-before-ai').checked = s.askBeforeAI; $('#set-proactive').checked = s.proactive; $('#set-checkin-hour').value = s.checkinHour; $('#set-voice-reply').checked = s.voiceReply;
   $('#set-local-whisper').checked = !!s.localWhisper; $('#set-local-embeddings').checked = !!s.localEmbeddings;
   $('#set-pitch').value = s.pitch || 0.82; $('#set-sounds').checked = s.sounds !== false; $('#set-cloud-voice').checked = s.cloudVoice !== false;
-  $('#set-speaker').value = s.speaker || 'carina';
+  $('#set-speaker').value = s.speaker || 'carina'; $('#set-continuous').checked = s.continuous !== false;
   const sel = $('#set-voice'); const voices = listVoices();
   sel.innerHTML = '<option value="">Automática (grave)</option>' + voices.map(v => `<option value="${esc(v.name)}" ${v.name === s.voiceName ? 'selected' : ''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('');
   await renderRequests();
@@ -751,7 +825,7 @@ async function persistSettings() {
     askBeforeAI: $('#set-ask-before-ai').checked, proactive: $('#set-proactive').checked, checkinHour: $('#set-checkin-hour').value || '19:00', voiceReply: $('#set-voice-reply').checked,
     localWhisper: $('#set-local-whisper').checked, localEmbeddings: $('#set-local-embeddings').checked, whisperModel: state.settings.whisperModel || 'onnx-community/whisper-base',
     voiceName: $('#set-voice').value, pitch: parseFloat($('#set-pitch').value) || 0.82, sounds: $('#set-sounds').checked,
-    cloudVoice: $('#set-cloud-voice').checked, speaker: $('#set-speaker').value || 'carina',
+    cloudVoice: $('#set-cloud-voice').checked, speaker: $('#set-speaker').value || 'carina', continuous: $('#set-continuous').checked,
   };
   await saveSettings(s); state.settings = s; toast('Ajustes guardados');
 }
@@ -763,33 +837,89 @@ async function refreshUsage() {
 }
 
 // ---------- Voz ----------
+// Un toque al micrófono abre una conversación continua, como una llamada: Brainer escucha,
+// responde en voz alta y vuelve a escuchar solo. Si hablas encima, se calla y te atiende.
+// Otro toque, o decir «adiós» / «hasta luego» / «para», la cierra.
+const BYE = /^(adios|adiós|hasta luego|hasta mañana|chau|chao|nos vemos|para|basta|detente|silencio|termina(mos)?|ya esta|cierra|apaga(te)?|gracias,? (adios|adiós|eso es todo|nada mas))[.! ]*$/i;
+function voiceUi(on, label) {
+  const btn = $('#btn-voice'); btn.classList.toggle('live', !!on); btn.classList.toggle('active', !!on);
+  btn.title = on ? 'Terminar la conversación' : 'Hablar (Ctrl+Alt+J)';
+  document.body.classList.toggle('convo', !!on);
+  const input = $('#composer-input'); input.placeholder = label || 'Habla con Brainer…';
+  setStatus(on ? 'en conversación' : 'local', on ? 'listening' : '');
+}
 async function startVoice() {
-  const btn = $('#btn-voice');
-  const input = $('#composer-input');
-  // Segunda pulsación: dejar de grabar y enviar
+  // Segundo toque: terminar (o, en modo manual, enviar lo grabado)
+  if (state.convo) { endVoice('Conversación terminada.'); return; }
   if (state.recording) { uiTone('done'); state.recording.stop(); return; }
   if (state.listening) return;
   if (inAppBrowser()) { showView('inicio'); addMsg('brainer', 'Estás dentro del navegador de otra app y no permite el micrófono. Abre <b>brainer.kusical.workers.dev</b> en Safari o Chrome.'); return; }
   if (!(await cloudReady())) { showView('inicio'); await renderConnectCard(); addMsg('brainer', 'Primero conecta tu nube: pega la frase secreta arriba y pulsa Conectar. Sin eso no puedo oírte.'); return; }
-  state.listening = true;
-  stopSpeaking();
-  const ph = input.placeholder;
+  if (state.settings.continuous === false) return manualVoice();
+  state.convo = { turns: 0, silent: 0 };
+  stopSpeaking(); uiTone('listen'); showView('inicio');
+  voiceUi(true, 'Te escucho… habla cuando quieras. Toca el micrófono para terminar.');
+  hud('escuchando', 'conversación abierta');
+  try { await convoLoop(); } catch (err) { hud('error'); addMsg('brainer', esc(err.message)); endVoice(); }
+}
+function endVoice(msg) {
+  const was = state.convo; state.convo = null;
+  if (state.recording) { try { state.recording.stop(); } catch (_) { /* nada */ } state.recording = null; }
+  if (state.bargeStop) { state.bargeStop(); state.bargeStop = null; }
+  voiceUi(false); hud('inactivo', 'en espera');
+  if (was && msg) { uiTone('done'); toast(msg, 2500); }
+}
+async function convoLoop() {
+  while (state.convo) {
+    // 1) escuchar hasta ~1,4 s de silencio
+    hud('escuchando', 'te escucho…'); voiceUi(true, 'Te escucho…');
+    const rec = startRecording({ maxMs: 45000, silenceMs: 1400, onLevel: lvl => state.brain && state.brain.setState('escuchando', lvl) });
+    state.recording = rec;
+    const clip = await rec.done; state.recording = null;
+    if (!state.convo) return;
+    if (!clip) {
+      state.convo.silent++;
+      if (state.convo.silent >= 3) { addMsg('brainer', 'Sigo aquí. Toca el micrófono cuando quieras seguir.', { speakText: 'Sigo aquí cuando quieras.', always: true }); await state.speaking; endVoice(); return; }
+      continue;
+    }
+    state.convo.silent = 0;
+    // 2) transcribir en tu nube
+    hud('pensando', 'transcribiendo…'); voiceUi(true, 'Transcribiendo…');
+    let text = '';
+    try { text = await cloudTranscribe(clip); } catch (err) { toast('No pude transcribir: ' + err.message, 3000); continue; }
+    if (!text || text.replace(/[^\p{L}\p{N}]/gu, '').length < 2) continue;
+    if (BYE.test(text.trim().toLowerCase())) { addMsg('user', esc(text)); addMsg('brainer', 'Hasta luego, Smith. Aquí sigo.', { speakText: 'Hasta luego. Aquí sigo.', always: true }); await state.speaking; endVoice(); return; }
+    // 3) responder (Brainer habla) y 4) dejar que lo interrumpas
+    state.convo.turns++;
+    await handleInput(text, { fromVoice: true });
+    await waitSpeaking();
+    if (!state.convo) return;
+  }
+}
+// Espera a que Brainer termine de hablar, vigilando si tú hablas encima para cortarlo
+async function waitSpeaking() {
+  const p = state.speaking; if (!p) return;
+  let interrupted = false;
+  state.bargeStop = bargeInWatcher({ onVoice: () => { interrupted = true; stopSpeaking(); uiTone('listen'); toast('Te escucho', 1200); } });
+  try { await p; } finally { if (state.bargeStop) { state.bargeStop(); state.bargeStop = null; } }
+  state.speaking = null;
+  if (!interrupted) await new Promise(r => setTimeout(r, 250));
+}
+// Modo manual (ajuste): pulsa, habla, vuelve a pulsar para enviar
+async function manualVoice() {
+  const btn = $('#btn-voice'); const input = $('#composer-input'); const ph = input.placeholder;
+  state.listening = true; stopSpeaking();
   try {
     btn.classList.add('active'); setStatus('escuchando', 'listening'); hud('escuchando', 'oyendo…'); uiTone('listen');
     input.placeholder = 'Escuchando… habla y vuelve a pulsar el micrófono para enviar';
-    // Grabamos hasta que vuelvas a pulsar (o 4 s de silencio, o 60 s)
     const rec = startRecording({ onLevel: lvl => state.brain && state.brain.setState('escuchando', lvl) });
     state.recording = rec;
-    const clip = await rec.done;
-    state.recording = null;
-    btn.classList.remove('active');
+    const clip = await rec.done; state.recording = null; btn.classList.remove('active');
     if (!clip) { addMsg('brainer', 'No te escuché. Pulsa el micrófono, habla y vuelve a pulsarlo cuando termines.'); return; }
     hud('pensando', 'transcribiendo en tu nube…'); setStatus('transcribiendo', 'thinking'); input.placeholder = 'Transcribiendo…';
     const text = await cloudTranscribe(clip);
     if (!text) { addMsg('brainer', 'Grabé, pero no distinguí palabras. Acércate al micrófono e inténtalo otra vez.'); return; }
-    input.value = text; // se ve lo que oyó antes de enviarse
-    await new Promise(r => setTimeout(r, 500));
-    input.value = '';
+    input.value = text; await new Promise(r => setTimeout(r, 500)); input.value = '';
     showView('inicio');
     await handleInput(text, { fromVoice: true });
   } catch (err) { hud('error'); uiTone('error'); addMsg('brainer', esc(err.message)); }
@@ -806,8 +936,11 @@ async function speakHud(text) {
     } catch (err) { console.warn('voz en la nube no disponible', err); }
   }
   hud('hablando');
-  personaSpeak(text, { voiceName: state.settings.voiceName, pitch: state.settings.pitch || 0.82, onEnd: () => hud('inactivo') });
-  setTimeout(() => { if ($('#hud-state').textContent === 'Hablando') hud('inactivo'); }, Math.min(20000, 90 * (text || '').length));
+  await new Promise(resolve => {
+    let done = false; const fin = () => { if (done) return; done = true; hud('inactivo'); resolve(); };
+    personaSpeak(text, { voiceName: state.settings.voiceName, pitch: state.settings.pitch || 0.82, onEnd: fin });
+    setTimeout(fin, Math.min(20000, 90 * (text || '').length));
+  });
 }
 function uiTone(kind) { if (state.settings.sounds !== false) tone(kind); }
 
@@ -821,6 +954,7 @@ function bind() {
 
   $('#connect-card').onsubmit = e => { e.preventDefault(); connectWithSecret($('#connect-secret').value.trim()); };
   $('#composer').onsubmit = e => { e.preventDefault(); const i = $('#composer-input'); const v = i.value; i.value = ''; handleInput(v); };
+  $('#lesson-form').onsubmit = e => { e.preventDefault(); const i = $('#lesson-topic'); const t = i.value.trim(); if (!t) return; i.value = ''; showView('inicio'); handleInput('voy a estudiar ' + t); };
   document.addEventListener('click', e => {
     const open = e.target.closest('[data-open]');
     if (open) { e.preventDefault(); const n = state.notes.find(x => x.id === open.dataset.open); if (n) openNote(n); return; }
@@ -941,11 +1075,7 @@ function bind() {
     badge.textContent = evt.state === 'syncing' ? 'SYNC…' : evt.state === 'error' ? 'SYNC !' : 'SYNC OK';
     badge.title = evt.state === 'error' ? evt.message : 'Sincronizado';
     if (evt.state === 'ok' && evt.pulled > 0) {
-      const before = state.notes.filter(n => (n.tags || []).includes('claude')).length;
-      loadNotes().then(() => {
-        const after = state.notes.filter(n => (n.tags || []).includes('claude')).length;
-        if (after > before) { toast('Claude Code dejó un informe nuevo en tu bóveda', 6000); if (state.view === 'inicio') addMsg('brainer', 'Llegó un informe de Claude Code. Lo tienes en la Cabina y en la Bóveda.', { speakText: 'Llegó un informe de Claude Code.' }); }
-      });
+      loadNotes().then(() => { announceReports(); renderCockpit(); });
       if (state.view === 'recordatorios') renderReminders(); if (state.view === 'estudio') renderStudy(); if (state.view === 'ajustes') renderRequests();
     }
     if (state.view === 'ajustes') renderSyncStatus();
@@ -988,6 +1118,7 @@ async function init() {
   document.addEventListener('keydown', () => { state.lastActivity = Date.now(); }, { passive: true });
   setInterval(presence, 60000);
   await loadNotes();
+  state.announced = new Set(state.notes.filter(n => (n.tags || []).includes('claude')).map(n => n.id));
   await suggestFromNotes();
   startTicker(fired => { for (const r of fired) { toast(`Recordatorio: ${r.text}`, 6000); if (state.view === 'inicio') addMsg('brainer', `Te recuerdo: <b>${esc(r.text)}</b>`, { speakText: `Te recuerdo: ${r.text}` }); } });
   await refreshUsage();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#03060b">
+  <meta name="theme-color" content="#05030f">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="description" content="Brainer: tu inteligencia personal con voz, memoria conectada y Claude Code como motor.">
@@ -69,7 +69,7 @@
             <div class="bar"><i id="meter-bar" style="width:0%"></i></div>
             <div class="trow"><label>Redes locales</label><b id="meter-local">apagadas</b></div>
             <div class="trow"><label>Sincronización</label><b id="meter-sync">sin conectar</b></div>
-            <div class="trow"><label>Latido</label><b id="meter-heartbeat">cada hora</b></div>
+            <div class="trow"><label>Equipo en la nube</label><b id="meter-heartbeat">ronda cada hora</b></div>
           </aside>
         </div>
         <div class="stage-mid">
@@ -123,8 +123,10 @@
           <h2>Estudio</h2>
           <div class="actions"><button class="btn ghost" id="btn-gen-cards">Generar tarjetas</button><button class="btn primary" id="btn-study-start">Repasar ahora</button></div>
         </div>
+        <form class="study-lesson" id="lesson-form"><span class="prompt-mark">›</span><input id="lesson-topic" type="text" placeholder="¿Qué estudias hoy? Ej.: elipses, derivadas, la célula…" autocomplete="off"><button type="submit" class="btn primary">Armar lección</button></form>
+        <p class="muted small">Una lección trae videos, ideas clave, fórmulas, un ejercicio resuelto paso a paso, la gráfica y las fuentes. También puedes decirlo: «voy a estudiar elipses».</p>
         <div class="stats" id="study-stats"></div>
-        <div class="study-area" id="study-area"><p class="muted">Brainer crea tarjetas a partir de tus notas y te las pregunta cuando toca, con repetición espaciada.</p></div>
+        <div class="study-area" id="study-area"><p class="muted">Brainer crea tarjetas a partir de tus notas y de cada lección, y te las pregunta cuando toca, con repetición espaciada.</p></div>
       </section>
 
       <section class="view" id="view-recordatorios">
@@ -135,7 +137,7 @@
           <div class="row"><button type="submit" class="btn primary">Guardar</button><button type="button" class="btn ghost" id="rem-cancel">Cancelar</button></div>
         </form>
         <div id="reminder-list"></div>
-        <p class="muted small">Los avisos suenan mientras Brainer esté abierto o instalado como app. Claude Code, además, revisa tu bóveda cada hora y escribe el resumen cada noche.</p>
+        <p class="muted small">Los avisos suenan mientras Brainer esté abierto o instalado como app. El equipo de Claude Code, además, pasa cada hora por tu bóveda para hacer lo que le encargaste.</p>
       </section>
 
       <section class="view" id="view-perfil">
@@ -174,6 +176,7 @@
             <button class="btn ghost" id="btn-test-voice">Probar voz</button>
           </div>
           <label class="check"><input type="checkbox" id="set-voice-reply" checked> Responder en voz alta cuando le hablo</label>
+          <label class="check"><input type="checkbox" id="set-continuous" checked> Conversación continua: un toque al micrófono y hablamos seguido, sin volver a pulsar. Si hablas encima, Brainer se calla y te escucha.</label>
           <label class="check"><input type="checkbox" id="set-sounds" checked> Tonos de interfaz</label>
         </div>
         <div class="panel-glass block">

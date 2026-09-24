@@ -1,6 +1,6 @@
 # Primera semana · las cinco cosas que haces a mano
 
-La guía es clara: el latido va al final. Esta semana el sistema se prueba contigo enfrente. Si estas cinco salen bien varias veces, la semana que viene se programan. Abre Claude Code **dentro de esta carpeta** (raíz del repositorio), nunca un nivel arriba.
+La guía dice que el latido va al final; tú pediste que el equipo trabaje mientras no estás, así que la ronda de cada hora («Brainer · motor») ya está encendida. Lo demás, esta semana, se prueba contigo enfrente. Abre Claude Code **dentro de esta carpeta** (raíz del repositorio), nunca un nivel arriba.
 
 ## 1. No configures nada (día 1)
 No hay entrevista. Usa Brainer y habla normal: qué estudias, qué construyes, qué te molesta. Cada dato estable que digas se guarda solo en `.claude/rules/aprendido.md` (y en la app, en su memoria). Si un día quieres ver qué aprendió: «qué sabes de mí».

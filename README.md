@@ -15,7 +15,7 @@ Un agente personal de cinco capas construido sobre este repositorio, siguiendo l
 | 2 · Habilidades | 8 procedimientos con nombre; la descripción es el disparador | `.claude/skills/*/SKILL.md` |
 | 3 · Equipo | 5 subagentes fijos con memoria propia y herramientas recortadas | `.claude/agents/`, `.claude/agent-memory/` |
 | 4 · Sentidos | Gmail, Calendar (conectores) y Brainer Sync (la app) | conectores de claude.ai · `worker/` |
-| 5 · Latido | Rutinas que despiertan solas. **Apagado** hasta que el flujo salga bien a mano | Rutinas de Claude Code |
+| 5 · Latido | Rutinas que despiertan solas. **Encendido**: «Brainer · motor» pasa cada hora y reparte por esfuerzo (`brainer-motor`) | Rutinas de Claude Code |
 | Reflejos | Hooks: parte de arranque, candado, respaldo, índice | `.claude/hooks/`, `.claude/settings.json` |
 
 ## El árbol
@@ -49,6 +49,7 @@ Me/
 | «ármame una app», «arranca el proyecto…» | `proyecto` | programador |
 | «qué tengo hoy», «resumen del correo» | `parte-del-dia` | la conversación, con Gmail y Calendar |
 | «sincroniza Brainer», «procesa mis peticiones» | `sincronizar-brainer` | la conversación |
+| «pasa la ronda», «haz mi trabajo pendiente» | `brainer-motor` | la rutina de cada hora, repartiendo por esfuerzo |
 
 ## Reglas duras (con candado)
 
@@ -58,7 +59,12 @@ Me/
 
 ## Brainer, la ventana
 
-Abre https://brainer.kusical.workers.dev en Safari o Chrome (no dentro de otra app), pega tu frase secreta una vez y ya: te oye (Whisper), te habla (voz humana Aura-2 en español), conversa con un modelo en tu Cloudflare con tus notas como contexto, sincroniza tu bóveda entre dispositivos y te deja pulsar las habilidades. Lo pesado va al vault: Claude Code lo recoge con `sincronizar-brainer`.
+Abre https://brainer.kusical.workers.dev en Safari o Chrome (no dentro de otra app), pega tu frase secreta una vez y ya:
+
+- **Conversación continua**: un toque al micrófono y hablas seguido, como una llamada. Si hablas encima, Brainer se calla y te escucha. «Adiós» la cierra.
+- **Lección guiada**: «voy a estudiar elipses» arma videos de YouTube, ideas clave, fórmulas (KaTeX), un ejercicio resuelto paso a paso, la gráfica dibujada en la app y las fuentes (Wikipedia y web). Se guarda como nota y sus preguntas como tarjetas.
+- **Equipo en la nube**: «ármame una app…», «investiga a fondo…» viajan a la bóveda con un esfuerzo (bajo, medio, alto). El motor pasa cada hora. Al volver: «¿está listo mi trabajo?» y Brainer lee el informe.
+- Te oye (Whisper), te habla (Aura-2, voz Carina), conversa con un modelo en tu Cloudflare con tus notas como contexto y sincroniza tu bóveda entre dispositivos.
 
 ```bash
 # Publicar la ventana (desde la raíz) y el worker

@@ -153,7 +153,7 @@ async function aiTts(request, env) {
   for (const model of TTS_MODELS) {
     if (only && !model.includes(only)) continue;
     try {
-      const input = model.includes('aura') ? { text, speaker: body.speaker || 'celeste' } : { prompt: text, lang: 'es' };
+      const input = model.includes('aura') ? { text, speaker: body.speaker || 'carina' } : { prompt: text, lang: 'es' };
       const r = await env.AI.run(model, input);
       // Respuesta: flujo binario, o { audio: base64 }
       if (r && typeof r === 'object' && r.audio) {

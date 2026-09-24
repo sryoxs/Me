@@ -37,7 +37,7 @@ export async function transcribe(blob) {
 
 // texto → reproduce la voz. Devuelve una promesa que termina cuando acaba de hablar.
 let currentAudio = null;
-export async function speakCloud(text, { speaker = 'celeste', onStart } = {}) {
+export async function speakCloud(text, { speaker = 'carina', onStart } = {}) {
   const { url, headers } = await endpoint('/ai/tts');
   const res = await fetch(url, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ text, speaker }) });
   if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || `Error ${res.status}`); }

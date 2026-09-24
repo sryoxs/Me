@@ -719,7 +719,7 @@ async function renderSettings() {
   $('#set-ask-before-ai').checked = s.askBeforeAI; $('#set-proactive').checked = s.proactive; $('#set-checkin-hour').value = s.checkinHour; $('#set-voice-reply').checked = s.voiceReply;
   $('#set-local-whisper').checked = !!s.localWhisper; $('#set-local-embeddings').checked = !!s.localEmbeddings;
   $('#set-pitch').value = s.pitch || 0.82; $('#set-sounds').checked = s.sounds !== false; $('#set-cloud-voice').checked = s.cloudVoice !== false;
-  $('#set-speaker').value = s.speaker || 'celeste';
+  $('#set-speaker').value = s.speaker || 'carina';
   const sel = $('#set-voice'); const voices = listVoices();
   sel.innerHTML = '<option value="">Automática (grave)</option>' + voices.map(v => `<option value="${esc(v.name)}" ${v.name === s.voiceName ? 'selected' : ''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('');
   await renderRequests();
@@ -751,7 +751,7 @@ async function persistSettings() {
     askBeforeAI: $('#set-ask-before-ai').checked, proactive: $('#set-proactive').checked, checkinHour: $('#set-checkin-hour').value || '19:00', voiceReply: $('#set-voice-reply').checked,
     localWhisper: $('#set-local-whisper').checked, localEmbeddings: $('#set-local-embeddings').checked, whisperModel: state.settings.whisperModel || 'onnx-community/whisper-base',
     voiceName: $('#set-voice').value, pitch: parseFloat($('#set-pitch').value) || 0.82, sounds: $('#set-sounds').checked,
-    cloudVoice: $('#set-cloud-voice').checked, speaker: $('#set-speaker').value || 'celeste',
+    cloudVoice: $('#set-cloud-voice').checked, speaker: $('#set-speaker').value || 'carina',
   };
   await saveSettings(s); state.settings = s; toast('Ajustes guardados');
 }
@@ -801,7 +801,7 @@ async function speakHud(text) {
   if (state.settings.cloudVoice !== false && await cloudReady()) {
     try {
       hud('pensando', 'generando voz…');
-      await speakCloud(text, { speaker: state.settings.speaker || 'celeste', onStart: () => hud('hablando') });
+      await speakCloud(text, { speaker: state.settings.speaker || 'carina', onStart: () => hud('hablando') });
       hud('inactivo'); return;
     } catch (err) { console.warn('voz en la nube no disponible', err); }
   }

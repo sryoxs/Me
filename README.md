@@ -40,17 +40,23 @@ python3 -m http.server 8080
 
 Brainer se sincroniza solo entre tu celular, iPad y computadora usando **tu propia cuenta de Cloudflare** (plan gratuito): un Worker (`worker/`) y una base de datos D1 llamada `brainer`. Nadie más tiene acceso: hace falta una frase secreta que solo tú conoces.
 
-### Puesta en marcha (una sola vez)
+### Ya desplegado
 
-1. En Cloudflare → **My Profile → API Tokens → Create Token → plantilla "Edit Cloudflare Workers"**. Copia el token.
-2. Tu **Account ID** aparece en Cloudflare → Workers & Pages (barra derecha).
-3. Inventa una **frase secreta** larga (será tu llave del cerebro).
-4. En GitHub → **Settings → Secrets and variables → Actions** crea tres secretos:
-   - `CLOUDFLARE_API_TOKEN`
-   - `CLOUDFLARE_ACCOUNT_ID`
-   - `BRAINER_SECRET`
-5. Ejecuta el flujo **Desplegar Brainer Sync** (Actions → Run workflow, o se lanza solo al hacer merge a `main`). Al terminar verás la dirección del Worker, algo como `https://brainer-sync.<tu-cuenta>.workers.dev`.
-6. En Brainer → **Ajustes → Sincronizar entre dispositivos**: pega la dirección y la frase secreta y pulsa **Conectar y sincronizar todo**. Repite en cada dispositivo.
+El Worker está publicado en **`https://brainer-sync.kusical.workers.dev`** con su frase secreta configurada.
+
+En Brainer → **Ajustes → Sincronizar entre dispositivos**: pega esa dirección y tu frase secreta y pulsa **Conectar y sincronizar todo**. Repite en cada dispositivo.
+
+### Volver a desplegar el Worker (si cambias `worker/`)
+
+Opción A, desde tu computadora:
+```bash
+cd worker
+npx wrangler login
+npx wrangler deploy
+npx wrangler secret put BRAINER_SECRET   # solo si quieres cambiar la frase
+```
+
+Opción B, desde GitHub: crea los secretos `CLOUDFLARE_API_TOKEN` (plantilla "Edit Cloudflare Workers"), `CLOUDFLARE_ACCOUNT_ID` y `BRAINER_SECRET` en *Settings → Secrets and variables → Actions* y lanza el flujo **Desplegar Brainer Sync** desde la pestaña Actions.
 
 A partir de ahí se sincroniza al abrir la app, al volver a ella y cada minuto. Si dos dispositivos cambian lo mismo, gana el cambio más reciente. Los archivos adjuntos se quedan en el dispositivo donde los importaste (el texto extraído sí viaja); para llevarlos usa **Exportar/Importar cerebro**.
 

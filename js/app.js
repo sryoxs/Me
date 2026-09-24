@@ -864,6 +864,8 @@ async function init() {
   await refreshUsage();
   const v = location.hash.slice(1);
   showView(v && $('#view-' + v) ? v : 'inicio');
+  // ?demo=1 carga el cerebro de ejemplo automáticamente
+  if (new URLSearchParams(location.search).get('demo') && !state.notes.some(n => n.id === 'demo-termo')) setTimeout(runDemo, 600);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   // Sincronización automática (solo si está configurada)
   const sc = await getSyncConfig();

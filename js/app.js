@@ -1,6 +1,7 @@
 // Brainer: lógica principal de la interfaz.
 import { notes, reminders, cards, files, requests, kv, getSettings, saveSettings, exportAll, importAll, wipeAll, uid } from './store.js';
 import { route, TIER_LABEL } from './neuro.js';
+import { loadDemo, removeDemo } from './demo.js';
 import { Orb, STATE_LABEL } from './hud.js';
 import { loadWhisper, recordUntilSilence, transcribe, embed, indexNotes, semanticSearch, extractiveSummary, onProgress, embeddingsReady, whisperReady } from './local-ai.js';
 import { search, parseIntent, normalize } from './search.js';
@@ -303,6 +304,13 @@ async function renderRequests() {
   el.innerHTML = reqs.length ? reqs.map(r => `<div class="req"><span class="st ${r.status}">${esc(r.status)}</span><span class="grow">${esc(r.skill)} — ${esc((r.prompt || '').slice(0, 80))}</span>${r.reportId ? `<a href="#" data-open="${r.reportId}">ver informe</a>` : ''}<button class="icon-btn" data-req-del="${r.id}">🗑️</button></div>`).join('') : '<p class="muted small">Sin peticiones todavía.</p>';
 }
 
+async function runDemo() {
+  toast('Cargando cerebro de ejemplo…');
+  await loadDemo(); await loadNotes(); await suggestFromNotes();
+  await renderHome();
+  addMsg('brainer', `Cargué un cerebro de ejemplo: 8 notas enlazadas, una tarea con fecha, 2 recordatorios, 6 tarjetas y un informe que dejó Claude Code. Prueba:<br>• “búscame el informe de termodinámica”<br>• “qué dice la segunda ley”<br>• “recuérdame estudiar cuántica mañana a las 8”<br>• “investiga a fondo la revolución francesa” (Nivel 3)<br>• Mira <a href="#" data-view-go="grafo">🕸️ Cerebro</a> y <a href="#" data-view-go="estudio">📚 Estudio</a>. Cuando termines: “Quitar demo”.`);
+}
+
 // ---------- Inicio ----------
 async function renderHome() {
   const profile = await kv.get('profile', {});
@@ -323,6 +331,9 @@ async function renderBrief(asMessage) {
   for (const s of b.subjects.slice(0, 2)) chips.push({ t: `🔎 ${s}`, fn: () => handleInput(`qué tengo sobre ${s}`) });
   chips.push({ t: '🕸️ Ver mi cerebro', fn: () => showView('grafo') });
   chips.push({ t: '➕ Crear nota', fn: () => openNote(null) });
+  const hasDemo = state.notes.some(n => n.id === 'demo-termo');
+  if (!hasDemo && state.notes.length <= 2) chips.unshift({ t: '🎬 Cargar demo', fn: runDemo });
+  if (hasDemo) chips.push({ t: '🧹 Quitar demo', fn: async () => { await removeDemo(); await loadNotes(); renderHome(); toast('Demo eliminada'); } });
   for (const c of chips) { const bt = document.createElement('button'); bt.textContent = c.t; bt.onclick = c.fn; sug.appendChild(bt); }
 
   if (asMessage) {
@@ -648,6 +659,8 @@ function bind() {
     if (aiAbout) { aiAboutNote(aiAbout.dataset.aiAbout, aiAbout.dataset.q); return; }
     const aiF = e.target.closest('[data-ai-free]');
     if (aiF) { aiFree(aiF.dataset.aiFree); return; }
+    const go = e.target.closest('[data-view-go]');
+    if (go) { e.preventDefault(); showView(go.dataset.viewGo); return; }
     const skill = e.target.closest('[data-skill]');
     if (skill) { runSkill(skill.dataset.skill); return; }
     const rq = e.target.closest('[data-req-skill]');

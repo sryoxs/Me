@@ -1,6 +1,6 @@
 // Service worker: Brainer funciona sin conexión y se instala como app.
-const CACHE = 'brainer-v3';
-const ASSETS = ['./', 'index.html', 'css/brainer.css', 'js/app.js', 'js/store.js', 'js/search.js', 'js/graph.js', 'js/voice.js', 'js/ai.js', 'js/study.js', 'js/reminders.js', 'js/sync.js', 'js/neuro.js', 'js/hud.js', 'js/local-ai.js', 'skills/skills.json', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'brainer-v4';
+const ASSETS = ['./', 'index.html', 'css/brainer.css', 'js/app.js', 'js/store.js', 'js/search.js', 'js/graph.js', 'js/voice.js', 'js/ai.js', 'js/study.js', 'js/reminders.js', 'js/sync.js', 'js/neuro.js', 'js/hud.js', 'js/local-ai.js', 'js/demo.js', 'skills/skills.json', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

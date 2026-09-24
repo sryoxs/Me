@@ -118,7 +118,7 @@ export async function dailyBrief() {
   }
   if (s.proactive && stale > 3) questions.push(`Hay ${stale} notas que no tocas hace más de una semana. ¿Quieres que te pregunte sobre alguna?`);
   const subjects = topTags(allNotes, 3);
-  if (s.proactive && subjects.length && Math.random() < 0.5) questions.push(`¿Cómo vas con ${subjects[Math.floor(Math.random() * subjects.length)]}? ¿Hay algo que se te complique?`);
+  if (s.proactive && subjects.length && Math.random() < 0.5) questions.push(`¿Cómo vas con ${subjects[Math.floor(Math.random() * subjects.length)].replace(/^#/, '')}? ¿Hay algo que se te complique?`);
 
   return { text: lines.join(' '), today, suggested, tasks, study: st, questions, subjects };
 }

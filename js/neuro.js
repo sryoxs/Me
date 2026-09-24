@@ -41,4 +41,4 @@ export function route(text, { hasSemantic = false } = {}) {
   return { tier: 1, intent, reason: 'regla local' };
 }
 
-export const TIER_LABEL = { 1: 'Nivel 1 · instantáneo', 2: 'Nivel 2 · red neuronal local', 3: 'Nivel 3 · Claude Code' };
+export const TIER_LABEL = { 0: 'Conversación', 1: 'Nivel 1 · instantáneo', 2: 'Nivel 2 · red neuronal local', 3: 'Nivel 3 · Claude Code' };

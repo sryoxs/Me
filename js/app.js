@@ -2,11 +2,12 @@
 import { notes, reminders, cards, files, requests, kv, getSettings, saveSettings, exportAll, importAll, wipeAll, uid } from './store.js';
 import { route, TIER_LABEL } from './neuro.js';
 import { loadDemo, removeDemo } from './demo.js';
-import { Orb, STATE_LABEL } from './hud.js';
+const STATE_LABEL = { inactivo: 'Listo', escuchando: 'Escuchando', pensando: 'Procesando', hablando: 'Hablando', error: 'Error' };
 import { loadWhisper, recordUntilSilence, transcribe, embed, indexNotes, semanticSearch, extractiveSummary, onProgress, embeddingsReady, whisperReady } from './local-ai.js';
 import { search, parseIntent, normalize } from './search.js';
-import { BrainGraph } from './graph.js';
-import { listen, speak, voiceSupported } from './voice.js';
+import { Brain3D } from './brain3d.js';
+import { listen, voiceSupported } from './voice.js';
+import { converse, welcomeLine, idleThought, listVoices, speak as personaSpeak, tone } from './persona.js';
 import { ask, parseCards, usageToday } from './ai.js';
 import { cardsFromNote, schedule, dueCards, stats as studyStats } from './study.js';
 import { requestNotifPermission, startTicker, suggestFromNotes, dailyBrief } from './reminders.js';
@@ -15,7 +16,21 @@ import { getSyncConfig, saveSyncConfig, syncNow, fullSync, testConnection, start
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const fmtDate = ts => new Date(ts).toLocaleString('es', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+// Texto plano para vistas previas: sin etiquetas, marcas de markdown ni casillas.
+const stripTags = s => String(s ?? '').replace(/(^|\s)#[\p{L}\p{N}_-]+/gu, '$1').replace(/^#{1,6}\s+/gm, '').replace(/\*\*|__|`/g, '').replace(/^\s*[-*]\s*\[[ x]\]\s*/gmi, '· ').replace(/\[\[([^\]]+)\]\]/g, '$1').replace(/\n{2,}/g, ' · ').replace(/\n/g, ' ').trim();
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const ICONS = {
+  plan: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  cards: '<svg viewBox="0 0 24 24"><rect x="4" y="6" width="13" height="15" rx="2"/><path d="M8 3h12v14"/></svg>',
+  mail: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+  news: '<svg viewBox="0 0 24 24"><path d="M4 4h13v16H4zM17 8h3v10a2 2 0 0 1-2 2M7 8h7M7 12h7M7 16h4"/></svg>',
+  research: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5M11 8v6M8 11h6"/></svg>',
+  chart: '<svg viewBox="0 0 24 24"><path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3M20 16V6"/></svg>',
+  moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
+  spark: '<svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>',
+};
+const TYPE_LABEL = { nota: 'nota', captura: 'captura', informe: 'informe', tarea: 'tarea', idea: 'idea', proyecto: 'proyecto', conexion: 'conexión', flashcard: 'tarjeta' };
 
 const state = { view: 'inicio', notes: [], activeTag: null, currentNote: null, graph: null, studyQueue: [], studyCard: null, showAnswer: false, settings: null };
 
@@ -32,7 +47,8 @@ function showView(name) {
   $$('.nav-item').forEach(a => a.classList.toggle('active', a.dataset.view === name));
   $('#sidenav').classList.remove('open'); $('#scrim').classList.remove('show');
   if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name);
-  if (name === 'grafo') requestAnimationFrame(() => { state.graph.resize(); refreshGraph(); });
+  document.body.classList.toggle('dim', !['inicio', 'grafo'].includes(name));
+  if (name === 'grafo') refreshGraph();
   if (name === 'boveda') renderVault();
   if (name === 'estudio') renderStudy();
   if (name === 'recordatorios') renderReminders();
@@ -42,29 +58,27 @@ function showView(name) {
 }
 
 // ---------- Chat con Brainer ----------
-function addMsg(role, html, { speakText } = {}) {
+function addMsg(role, html, { speakText, always } = {}) {
   const el = document.createElement('div');
   el.className = 'msg ' + role;
   el.innerHTML = html;
   $('#chat').appendChild(el);
   el.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  if (role === 'brainer' && speakText && state.settings.voiceReply && state.lastInputWasVoice) speakHud(speakText);
+  if (role === 'brainer' && speakText && state.settings.voiceReply && (state.lastInputWasVoice || (always && state.userGestured))) speakHud(speakText);
   return el;
 }
 
 function resultCard(note, snippet) {
-  return `<span class="result" data-open="${note.id}"><b>${esc(note.title)}</b><span class="cite">${esc(note.type)} · ${fmtDate(note.updated)}</span><br>${esc(snippet || '')}</span>`;
+  return `<span class="result" data-open="${note.id}"><b>${esc(note.title)}</b><span class="cite">${esc(TYPE_LABEL[note.type] || note.type)} · ${fmtDate(note.updated)}</span>${esc(stripTags(snippet || ''))}</span>`;
 }
 
 // ---------- HUD ----------
 function hud(st, tierText) {
-  state.orb && state.orb.set(st);
-  const el = $('#hud-state'); if (el) el.textContent = STATE_LABEL[st] || st;
-  const wrap = $('.hud-state'); if (wrap) wrap.className = 'hud-state ' + st;
+  if (st) { state.brain && state.brain.setState(st); const el = $('#hud-state'); if (el) el.textContent = STATE_LABEL[st] || st; }
   if (tierText !== undefined) { const t = $('#hud-tier'); if (t) t.textContent = tierText; }
 }
 function showTier(r) {
-  const b = $('#tier-badge'); b.hidden = false; b.textContent = `N${r.tier}`; b.title = `${TIER_LABEL[r.tier]} — ${r.reason}`;
+  const b = $('#tier-badge'); b.hidden = false; b.textContent = r.tier === 0 ? 'CONV' : `N${r.tier}`; b.title = `${TIER_LABEL[r.tier]} — ${r.reason}`;
   hud(undefined, `${TIER_LABEL[r.tier]} · ${r.reason}`);
   setTimeout(() => { b.hidden = true; }, 6000);
 }
@@ -81,6 +95,11 @@ async function handleInput(text, { fromVoice = false } = {}) {
   try {
     // Respuestas a preguntas abiertas de Brainer (recordatorio sin hora, “¿qué estudiaste hoy?”)
     if (state.pendingReminder || state.pendingCheckin) return await handleTier1(text, parseIntent(text), fromVoice);
+    // Nivel 0: conversación. “Hola” no es una búsqueda.
+    const profile = await kv.get('profile', {});
+    const st = await studyStats();
+    const conv = converse(text, { name: profile.name, notes: state.notes.length, due: st.due, brief: /^(hola|buen)/i.test(text) ? ($('#daily-brief').textContent || '') : '' });
+    if (conv) { showTier({ tier: 0, reason: 'charla' }); addMsg('brainer', esc(conv.text), { speakText: conv.speak, always: true }); return; }
     const r = route(text, { hasSemantic: await embeddingsReady() });
     showTier(r);
     if (r.tier === 3) return await handleTier3(r, text);
@@ -109,7 +128,7 @@ async function handleTier2(r, text, fromVoice) {
   for (const x of sem) fused.set(x.id, { id: x.id, score: x.score });
   for (const x of kw) { const f = fused.get(x.note.id) || { id: x.note.id, score: 0 }; f.score += 0.6 * (x.score / maxKw); fused.set(x.note.id, f); }
   const ranked = [...fused.values()].sort((a, b) => b.score - a.score).slice(0, 5).map(x => ({ ...x, note: state.notes.find(n => n.id === x.id) })).filter(x => x.note);
-  state.graph.activate(ranked.map(x => ({ id: x.id, score: Math.min(1, x.score) })));
+  state.brain.activate(ranked.map(x => ({ id: x.id, score: Math.min(1, x.score) })));
   if (!ranked.length) return handleTier1(text, r.intent, fromVoice);
   const top = ranked[0];
   let html = r.intent.question
@@ -117,7 +136,7 @@ async function handleTier2(r, text, fromVoice) {
     : `Esto es lo más parecido en tu cerebro:${resultCard(top.note, extractiveSummary(top.note.body, 2))}`;
   const others = ranked.slice(1);
   if (others.length) html += `<span class="cite">Relacionado: ${others.map(x => `<a href="#" data-open="${x.id}">${esc(x.note.title)}</a>`).join(' · ')}</span>`;
-  html += `<br><button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)}">🔬 Pedir a Claude Code un informe a fondo</button>${tierNote(r)}`;
+  html += `<br><button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)}">Pedir a Claude Code un informe a fondo</button>${tierNote(r)}`;
   addMsg('brainer', html, { speakText: r.intent.question ? extractiveSummary(top.note.body, 2) : `Encontré ${top.note.title}` });
   if (fromVoice) openNote(top.note);
 }
@@ -165,7 +184,7 @@ async function handleTier1(text, intent, fromVoice) {
     const suggested = await suggestFromNotes();
     const art = intent.type === 'informe' ? 'el informe' : `la ${intent.type}`;
     let html = `Creé ${art} <b>${esc(n.title)}</b>. ${intent.type === 'informe' ? 'Tócalo' : 'Tócala'} para editar.${resultCard(n, body)}`;
-    if (suggested.length) html += `<span class="cite">💡 Vi una fecha y te propuse un recordatorio: “${esc(suggested[0].text)}”. Acéptalo en Recordatorios.</span>`;
+    if (suggested.length) html += `<span class="cite">Vi una fecha y te propuse un recordatorio: “${esc(suggested[0].text)}”. Acéptalo en Recordatorios.</span>`;
     addMsg('brainer', html, { speakText: `Creé ${art} ${n.title}${suggested.length ? '. Te propuse un recordatorio por la fecha que mencionas.' : ''}` });
     return;
   }
@@ -180,20 +199,20 @@ async function handleTier1(text, intent, fromVoice) {
     const others = results.slice(1);
     let html = `Encontré esto en tu cerebro:${resultCard(top.note, top.snippet)}`;
     if (others.length) html += `<span class="cite">También: ${others.map(r => `<a href="#" data-open="${r.note.id}">${esc(r.note.title)}</a>`).join(' · ')}</span>`;
-    if (state.settings.apiKey) html += `<br><button class="btn ghost small" data-ai-about="${top.note.id}" data-q="${esc(text)}">✨ Pedir a Claude que responda con esta nota</button>`;
-    else html += `<br><button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)} (parte de la nota «${esc(top.note.title)}»)">🔬 Pedir a Claude Code un informe a fondo</button>`;
-    state.graph.activate(results.map(r => ({ id: r.note.id, score: Math.min(1, r.score / (results[0].score || 1)) })));
+    if (state.settings.apiKey) html += `<br><button class="btn ghost small" data-ai-about="${top.note.id}" data-q="${esc(text)}">Pedir a Claude que responda con esta nota</button>`;
+    else html += `<br><button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)} (parte de la nota «${esc(top.note.title)}»)">Pedir a Claude Code un informe a fondo</button>`;
+    state.brain.activate(results.map(r => ({ id: r.note.id, score: Math.min(1, r.score / (results[0].score || 1)) })));
     addMsg('brainer', html, { speakText: `Encontré ${top.note.title}. ${top.snippet.slice(0, 120)}` });
     if (fromVoice && results.length === 1) openNote(top.note);
     return;
   }
   if (intent.fallbackAI) {
     const btn = state.settings.apiKey
-      ? `<button class="btn ghost small" data-ai-free="${esc(text)}">✨ Preguntarle a Claude (gasta créditos)</button>`
-      : `<button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)}">🔬 Que Claude Code lo investigue</button>`;
-    return addMsg('brainer', `No tengo nada guardado sobre eso. ${btn} <button class="btn ghost small" data-create="${esc(text)}">📝 Guardarlo como nota</button>`);
+      ? `<button class="btn ghost small" data-ai-free="${esc(text)}">Preguntarle a Claude (gasta créditos)</button>`
+      : `<button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)}">Que Claude Code lo investigue</button>`;
+    return addMsg('brainer', `No tengo nada guardado sobre eso. ${btn} <button class="btn ghost small" data-create="${esc(text)}">Guardarlo como nota</button>`);
   }
-  addMsg('brainer', `No encontré nada sobre “${esc(intent.query)}” en tu bóveda. ¿Quieres que lo guarde como nota? Dime “crea nota sobre …”.`, { speakText: 'No encontré nada sobre eso en tu bóveda.' });
+  addMsg('brainer', `No tengo nada guardado sobre “${esc(intent.query)}”. Puedo guardarlo como nota o pedir a Claude Code que lo investigue. <button class="btn ghost small" data-create="${esc(intent.query)}">Guardar como nota</button> <button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)}">Que Claude Code lo investigue</button>`, { speakText: 'No tengo nada guardado sobre eso. ¿Lo guardo o lo investigo?' });
 }
 
 // Aprende hábitos simples del usuario: horas activas, temas frecuentes, forma de escribir.
@@ -275,7 +294,7 @@ async function runSkill(id, { prompt } = {}) {
   let p = prompt;
   if (!p && id === 'investigacion') { p = window.prompt('¿Qué tema quieres que investigue Claude Code?'); if (!p) return; }
   showView('inicio');
-  addMsg('user', `${sk.icono} ${esc(sk.nombre)}${p ? ': ' + esc(p) : ''}`);
+  addMsg('user', `${esc(sk.nombre)}${p ? ': ' + esc(p) : ''}`);
   const r = { tier: 3, skill: id, prompt: p || sk.descripcion, reason: `botón “${sk.nombre}”` };
   showTier(r);
   await handleTier3(r, p || sk.nombre);
@@ -283,7 +302,7 @@ async function runSkill(id, { prompt } = {}) {
 async function renderCockpit() {
   const skills = await loadSkills();
   const sk = $('#skills'); if (sk) sk.innerHTML = skills.map(s => `
-    <button class="skill" data-skill="${s.id}"><span>${s.icono} <b>${esc(s.nombre)}</b></span><small>${esc(s.descripcion)}</small><span class="lvl ${s.nivel === 3 ? 'l3' : ''}">${s.nivel === 3 ? 'Claude Code' : 'instantáneo'}</span></button>`).join('');
+    <button class="skill" data-skill="${s.id}"><span class="sk-head">${ICONS[s.icono] || ICONS.spark}<b>${esc(s.nombre)}</b></span><small>${esc(s.descripcion)}</small><span class="lvl ${s.nivel === 3 ? 'l3' : ''}">${s.nivel === 3 ? 'Claude Code' : 'instantáneo'}</span></button>`).join('');
   const [rems, reqs, last] = await Promise.all([reminders.all(), requests.all(), kv.get('syncLast', null)]);
   const start = new Date(); start.setHours(0, 0, 0, 0); const end = new Date(start); end.setDate(end.getDate() + 1);
   const today = rems.filter(r => !r.done && !r.suggested && r.when >= start.getTime() && r.when < end.getTime()).sort((a, b) => a.when - b.when);
@@ -295,20 +314,35 @@ async function renderCockpit() {
   const pending = reqs.filter(r => r.status === 'pendiente').length, done = reqs.filter(r => r.status === 'hecho').length;
   const mr = $('#meter-requests'); if (mr) mr.textContent = `${pending} pendiente${pending === 1 ? '' : 's'} · ${done} hecha${done === 1 ? '' : 's'}`;
   const mb = $('#meter-bar'); if (mb) mb.style.width = reqs.length ? `${Math.round(done / reqs.length * 100)}%` : '0%';
-  const ml = $('#meter-local'); if (ml) ml.textContent = `Redes locales: ${(await whisperReady()) ? 'Whisper ✓' : 'Whisper –'} · ${(await embeddingsReady()) ? 'semántica ✓' : 'semántica –'}`;
+  const ml = $('#meter-local'); if (ml) { const w = await whisperReady(), e = await embeddingsReady(); ml.textContent = w && e ? 'Whisper · semántica' : w ? 'Whisper' : e ? 'semántica' : 'apagadas'; }
   const ms = $('#meter-sync'); if (ms) ms.textContent = last ? `Sincronizado ${fmtDate(last.at)}` : 'Sin sincronizar';
 }
 async function renderRequests() {
   const el = $('#requests-list'); if (!el) return;
   const reqs = (await requests.all()).sort((a, b) => b.created - a.created).slice(0, 12);
-  el.innerHTML = reqs.length ? reqs.map(r => `<div class="req"><span class="st ${r.status}">${esc(r.status)}</span><span class="grow">${esc(r.skill)} — ${esc((r.prompt || '').slice(0, 80))}</span>${r.reportId ? `<a href="#" data-open="${r.reportId}">ver informe</a>` : ''}<button class="icon-btn" data-req-del="${r.id}">🗑️</button></div>`).join('') : '<p class="muted small">Sin peticiones todavía.</p>';
+  el.innerHTML = reqs.length ? reqs.map(r => `<div class="req"><span class="st ${r.status}">${esc(r.status)}</span><span class="grow">${esc(r.skill)} — ${esc((r.prompt || '').slice(0, 80))}</span>${r.reportId ? `<a href="#" data-open="${r.reportId}">ver informe</a>` : ''}<button class="icon-btn" data-req-del="${r.id}"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button></div>`).join('') : '<p class="muted small">Sin peticiones todavía.</p>';
 }
 
 async function runDemo() {
   toast('Cargando cerebro de ejemplo…');
   await loadDemo(); await loadNotes(); await suggestFromNotes();
   await renderHome();
-  addMsg('brainer', `Cargué un cerebro de ejemplo: 8 notas enlazadas, una tarea con fecha, 2 recordatorios, 6 tarjetas y un informe que dejó Claude Code. Prueba:<br>• “búscame el informe de termodinámica”<br>• “qué dice la segunda ley”<br>• “recuérdame estudiar cuántica mañana a las 8”<br>• “investiga a fondo la revolución francesa” (Nivel 3)<br>• Mira <a href="#" data-view-go="grafo">🕸️ Cerebro</a> y <a href="#" data-view-go="estudio">📚 Estudio</a>. Cuando termines: “Quitar demo”.`);
+  addMsg('brainer', `Cargué un cerebro de ejemplo: 8 notas enlazadas, una tarea con fecha, 2 recordatorios, 6 tarjetas y un informe que dejó Claude Code. Prueba:<br>• “búscame el informe de termodinámica”<br>• “qué dice la segunda ley”<br>• “recuérdame estudiar cuántica mañana a las 8”<br>• “investiga a fondo la revolución francesa” (Nivel 3)<br>• Mira <a href="#" data-view-go="grafo">Cerebro</a> y <a href="#" data-view-go="estudio">Estudio</a>. Cuando termines: “Quitar demo”.`);
+}
+
+async function firstGesture() {
+  if (!state.settings.voiceReply) return;
+  const [profile, b] = await Promise.all([kv.get('profile', {}), dailyBrief()]);
+  const reports = state.notes.filter(n => (n.tags || []).includes('claude') && Date.now() - n.updated < 86400000).length;
+  speakHud(welcomeLine({ name: profile.name, today: b.today.length, due: b.study.due, reports }));
+}
+async function presence() {
+  if (!state.settings.proactive || state.view !== 'inicio') return;
+  if (Date.now() - state.lastActivity < 8 * 60000) return;
+  const [profile, st] = await Promise.all([kv.get('profile', {}), studyStats()]);
+  const stale = state.notes.find(n => Date.now() - n.updated > 10 * 86400000 && n.type !== 'informe');
+  const line = await idleThought({ name: profile.name, due: st.due, staleTitle: stale && stale.title, minutesActive: (Date.now() - state.sessionStart) / 60000 });
+  if (line) addMsg('brainer', esc(line), { speakText: line, always: true });
 }
 
 // ---------- Inicio ----------
@@ -326,20 +360,20 @@ async function renderBrief(asMessage) {
   $('#daily-brief').textContent = b.text;
   const sug = $('#suggestions'); sug.innerHTML = '';
   const chips = [];
-  if (b.study.due) chips.push({ t: `📚 Repasar ${b.study.due} tarjetas`, fn: () => { showView('estudio'); startStudy(); } });
-  if (b.suggested.length) chips.push({ t: `⏰ ${b.suggested.length} recordatorio${b.suggested.length > 1 ? 's' : ''} propuesto${b.suggested.length > 1 ? 's' : ''}`, fn: () => showView('recordatorios') });
-  for (const s of b.subjects.slice(0, 2)) chips.push({ t: `🔎 ${s}`, fn: () => handleInput(`qué tengo sobre ${s}`) });
-  chips.push({ t: '🕸️ Ver mi cerebro', fn: () => showView('grafo') });
-  chips.push({ t: '➕ Crear nota', fn: () => openNote(null) });
+  if (b.study.due) chips.push({ t: `Repasar ${b.study.due} tarjetas`, fn: () => { showView('estudio'); startStudy(); } });
+  if (b.suggested.length) chips.push({ t: `${b.suggested.length} recordatorio${b.suggested.length > 1 ? 's' : ''} propuesto${b.suggested.length > 1 ? 's' : ''}`, fn: () => showView('recordatorios') });
+  for (const s of b.subjects.slice(0, 2)) chips.push({ t: s.replace(/^#/, ''), fn: () => handleInput(`qué tengo sobre ${s.replace(/^#/, '')}`) });
+  chips.push({ t: 'Ver mi cerebro', fn: () => showView('grafo') });
+  chips.push({ t: 'Nueva captura', fn: () => openNote(null) });
   const hasDemo = state.notes.some(n => n.id === 'demo-termo');
-  if (!hasDemo && state.notes.length <= 2) chips.unshift({ t: '🎬 Cargar demo', fn: runDemo });
-  if (hasDemo) chips.push({ t: '🧹 Quitar demo', fn: async () => { await removeDemo(); await loadNotes(); renderHome(); toast('Demo eliminada'); } });
+  if (!hasDemo && state.notes.length <= 2) chips.unshift({ t: 'Cargar demo', fn: runDemo });
+  if (hasDemo) chips.push({ t: 'Quitar demo', fn: async () => { await removeDemo(); await loadNotes(); renderHome(); toast('Demo eliminada'); } });
   for (const c of chips) { const bt = document.createElement('button'); bt.textContent = c.t; bt.onclick = c.fn; sug.appendChild(bt); }
 
   if (asMessage) {
     let html = esc(b.text);
     for (const r of b.today) html += `<br>• ${esc(r.text)} — ${fmtDate(r.when)}`;
-    for (const t of b.tasks.slice(0, 5)) html += `<br>☐ <a href="#" data-open="${t.id}">${esc(t.title)}</a>`;
+    for (const t of b.tasks.slice(0, 5)) html += `<br>· <a href="#" data-open="${t.id}">${esc(t.title)}</a>`;
     addMsg('brainer', html, { speakText: b.text });
   }
   // Pregunta proactiva (una por sesión)
@@ -357,7 +391,7 @@ async function loadNotes() {
   if (state.settings && state.settings.localEmbeddings) indexNotes().catch(() => {});
   if (state.view === 'inicio') renderCockpit();
   if (state.view === 'boveda') renderVault();
-  if (state.view === 'grafo') refreshGraph();
+  if (state.view === 'grafo') refreshGraph(); else state.brain.setNotes(state.notes);
   if (state.view === 'perfil') renderProfile();
 }
 
@@ -369,15 +403,15 @@ function renderVault() {
   const tags = {};
   for (const n of state.notes) for (const t of n.tags || []) tags[t] = (tags[t] || 0) + 1;
   $('#tag-chips').innerHTML = Object.entries(tags).sort((a, b) => b[1] - a[1]).slice(0, 20)
-    .map(([t, c]) => `<span class="chip ${state.activeTag === t ? 'active' : ''}" data-tag="${esc(t)}">#${esc(t)} <small>${c}</small></span>`).join('');
+    .map(([t, c]) => `<span class="chip ${state.activeTag === t ? 'active' : ''}" data-tag="${esc(t)}">${esc(t)} · ${c}</span>`).join('');
   const el = $('#note-list');
   if (!list.length) { el.innerHTML = `<div class="empty">${state.notes.length ? 'Nada coincide con tu búsqueda.' : 'Tu bóveda está vacía. Crea una nota, importa un archivo o díctale algo a Brainer.'}</div>`; return; }
   el.innerHTML = list.map(n => `
     <article class="note-card" data-type="${esc(n.type)}" data-open="${n.id}">
+      <span class="kind">${esc(TYPE_LABEL[n.type] || n.type)} · ${fmtDate(n.updated)}</span>
       <h4>${esc(n.title)}</h4>
-      <p>${esc((n.body || '').slice(0, 220))}</p>
-      <div class="tags">${(n.tags || []).slice(0, 5).map(t => `<span class="tag">#${esc(t)}</span>`).join('')}${n.files && n.files.length ? `<span class="tag">📎 ${n.files.length}</span>` : ''}</div>
-      <span class="muted small">${fmtDate(n.updated)}</span>
+      <p>${esc(stripTags(n.body).slice(0, 220))}</p>
+      <div class="tags">${(n.tags || []).slice(0, 5).map(t => `<span class="tag">${esc(t)}</span>`).join('')}${n.files && n.files.length ? `<span class="tag">${n.files.length} adjunto${n.files.length > 1 ? 's' : ''}</span>` : ''}</div>
     </article>`).join('');
 }
 
@@ -390,7 +424,7 @@ async function openNote(note) {
   $('#note-type').value = state.currentNote.type || 'nota';
   $('#note-title').value = state.currentNote.title || '';
   $('#note-body').value = state.currentNote.body || '';
-  $('#note-tags').value = (state.currentNote.tags || []).map(t => '#' + t).join(' ');
+  $('#note-tags').value = (state.currentNote.tags || []).join(', ');
   $('#note-meta').textContent = state.currentNote.id ? `Editada ${fmtDate(state.currentNote.updated)}` : 'Nueva nota';
   renderAttachments();
   renderBacklinks();
@@ -401,7 +435,7 @@ async function renderAttachments() {
   const el = $('#note-attachments'); el.innerHTML = '';
   for (const fid of state.currentNote.files || []) {
     const f = await files.get(fid); if (!f) continue;
-    const a = document.createElement('a'); a.textContent = `📎 ${f.name}`; a.href = '#';
+    const a = document.createElement('a'); a.textContent = f.name; a.href = '#';
     a.onclick = e => { e.preventDefault(); const url = URL.createObjectURL(f.blob); window.open(url, '_blank'); };
     el.appendChild(a);
   }
@@ -477,9 +511,8 @@ async function pdfText(file) {
 
 // ---------- Grafo ----------
 function refreshGraph() {
-  const all = state.notes.concat([]);
-  state.graph.setData(all, { filterType: $('#graph-filter').value });
-  setTimeout(() => state.graph.fit(), 600);
+  const f = $('#graph-filter').value;
+  state.brain.setNotes(f ? state.notes.filter(n => n.type === f) : state.notes);
 }
 
 // ---------- Estudio ----------
@@ -502,7 +535,7 @@ async function startStudy() {
 }
 function nextCard() {
   state.studyCard = state.studyQueue.shift(); state.showAnswer = false;
-  if (!state.studyCard) { renderStudy(); $('#study-area').innerHTML = '<p class="muted">¡Sesión terminada! 🎉</p>'; return; }
+  if (!state.studyCard) { renderStudy(); $('#study-area').innerHTML = '<p class="muted">Sesión terminada. Buen trabajo.</p>'; return; }
   drawCard();
 }
 async function drawCard() {
@@ -547,9 +580,9 @@ async function renderReminders() {
   el.innerHTML = list.map(r => `
     <div class="reminder ${r.done ? 'done' : ''} ${r.suggested ? 'suggested' : ''}" data-id="${r.id}">
       <input type="checkbox" ${r.done ? 'checked' : ''} data-done="${r.id}" ${r.suggested ? 'disabled' : ''}>
-      <div class="grow"><div>${r.suggested ? '💡 ' : ''}${esc(r.text)}</div><div class="when">${fmtDate(r.when)}${r.suggested ? ' · propuesto por Brainer' : ''}</div></div>
+      <div class="grow"><div>${esc(r.text)}</div><div class="when">${fmtDate(r.when)}${r.suggested ? ' · propuesto por Brainer' : ''}</div></div>
       ${r.suggested ? `<button class="btn primary small" data-accept="${r.id}">Aceptar</button>` : ''}
-      <button class="icon-btn" data-del="${r.id}" title="Eliminar">🗑️</button>
+      <button class="icon-btn" data-del="${r.id}" title="Eliminar"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
     </div>`).join('');
 }
 
@@ -561,11 +594,15 @@ async function renderProfile() {
   const links = (p.links || []).map(l => `<a href="${esc(/^https?:/.test(l) ? l : 'https://' + l)}" target="_blank" rel="noopener">${esc(l.replace(/^https?:\/\//, ''))}</a>`).join('');
   $('#profile-view').innerHTML = `
     <div class="avatar">${esc(initials)}</div>
-    <h2>${esc(p.name || 'Tu nombre')}</h2>
+    <h3 style="font-size:1.3rem">${esc(p.name || 'Tu nombre')}</h3>
     <p class="muted">${esc(p.title || 'Cuéntale a Brainer qué haces para que se adapte a ti.')}</p>
     <p>${esc(p.bio || '')}</p>
     ${p.goals && p.goals.length ? `<p><b>Metas:</b> ${p.goals.map(esc).join(' · ')}</p>` : ''}
     <div class="links">${links}</div>
+    <div class="core">
+      <div><div class="ph">CÓMO SUENO</div>${esc(p.voice || 'Frases cortas. Directo. Sin relleno.')}</div>
+      <div><div class="ph">QUÉ NUNCA SE TOCA</div>${esc(p.rules || 'Nada definido todavía.')}</div>
+    </div>
     <p class="muted small" style="margin-top:14px">Tu cerebro: ${state.notes.length} notas · ${(await cards.all()).length} tarjetas · ${mem.inputs || 0} conversaciones con Brainer</p>`;
   const projects = state.notes.filter(n => (n.tags || []).includes('proyecto'));
   $('#project-list').innerHTML = projects.length
@@ -579,6 +616,9 @@ async function renderSettings() {
   $('#set-apikey').value = s.apiKey; $('#set-model-light').value = s.modelLight; $('#set-model-heavy').value = s.modelHeavy;
   $('#set-ask-before-ai').checked = s.askBeforeAI; $('#set-proactive').checked = s.proactive; $('#set-checkin-hour').value = s.checkinHour; $('#set-voice-reply').checked = s.voiceReply;
   $('#set-local-whisper').checked = !!s.localWhisper; $('#set-local-embeddings').checked = !!s.localEmbeddings;
+  $('#set-pitch').value = s.pitch || 0.82; $('#set-sounds').checked = s.sounds !== false;
+  const sel = $('#set-voice'); const voices = listVoices();
+  sel.innerHTML = '<option value="">Automática (grave)</option>' + voices.map(v => `<option value="${esc(v.name)}" ${v.name === s.voiceName ? 'selected' : ''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('');
   await renderRequests();
   const sc = await getSyncConfig();
   $('#sync-url').value = sc.url; $('#sync-secret').value = sc.secret; $('#sync-enabled').checked = sc.enabled;
@@ -596,8 +636,8 @@ async function loadModels() {
   const el = $('#models-status');
   try {
     if (state.settings.localWhisper) { el.textContent = 'Preparando Whisper…'; await loadWhisper(); }
-    if (state.settings.localEmbeddings) { el.textContent = 'Preparando embeddings…'; await embed(['hola']); const n = await indexNotes(); el.textContent = `Modelos listos ✓ · ${n} notas indexadas`; }
-    else if (state.settings.localWhisper) el.textContent = 'Whisper listo ✓';
+    if (state.settings.localEmbeddings) { el.textContent = 'Preparando embeddings…'; await embed(['hola']); const n = await indexNotes(); el.textContent = `Modelos listos · ${n} notas indexadas`; }
+    else if (state.settings.localWhisper) el.textContent = 'Whisper listo';
     else el.textContent = 'Activa al menos un modelo arriba.';
     renderCockpit();
   } catch (err) { el.textContent = 'No se pudo cargar: ' + err.message; }
@@ -607,12 +647,14 @@ async function persistSettings() {
     apiKey: $('#set-apikey').value.trim(), modelLight: $('#set-model-light').value, modelHeavy: $('#set-model-heavy').value,
     askBeforeAI: $('#set-ask-before-ai').checked, proactive: $('#set-proactive').checked, checkinHour: $('#set-checkin-hour').value || '19:00', voiceReply: $('#set-voice-reply').checked,
     localWhisper: $('#set-local-whisper').checked, localEmbeddings: $('#set-local-embeddings').checked, whisperModel: state.settings.whisperModel || 'onnx-community/whisper-base',
+    voiceName: $('#set-voice').value, pitch: parseFloat($('#set-pitch').value) || 0.82, sounds: $('#set-sounds').checked,
   };
   await saveSettings(s); state.settings = s; toast('Ajustes guardados');
 }
 async function refreshUsage() {
   const u = await usageToday();
-  $('#usage-summary').textContent = `Créditos hoy: ${(u.today.input + u.today.output).toLocaleString('es')} tokens (~$${u.today.cost.toFixed(3)})`;
+  const pend = (await requests.all()).filter(r => r.status === 'pendiente').length;
+  $('#usage-summary').textContent = `CLAUDE CODE · ${pend} PENDIENTE${pend === 1 ? '' : 'S'}`;
   const d = $('#usage-detail'); if (d) d.innerHTML = `Hoy: ${u.today.calls} llamadas · ${u.today.input.toLocaleString('es')} entrada / ${u.today.output.toLocaleString('es')} salida · ~$${u.today.cost.toFixed(3)}<br>Total: ${u.total.calls} llamadas · ~$${u.total.cost.toFixed(2)}`;
 }
 
@@ -622,24 +664,28 @@ async function startVoice() {
   if (state.listening) return;
   state.listening = true;
   try {
-    btn.classList.add('active'); setStatus('escuchando…', 'listening'); hud('escuchando', 'oyendo…');
+    btn.classList.add('active'); setStatus('escuchando', 'listening'); hud('escuchando', 'oyendo…'); uiTone('listen');
     let text = '';
     if (state.settings.localWhisper) {
       // Red neuronal local: grabamos hasta el silencio y transcribimos en el dispositivo.
-      const audio = await recordUntilSilence({ onLevel: lvl => state.orb && state.orb.set('escuchando', { level: lvl }) });
+      const audio = await recordUntilSilence({ onLevel: lvl => state.brain && state.brain.setState('escuchando', lvl) });
       if (audio) { hud('pensando', 'Whisper transcribiendo en tu dispositivo…'); setStatus('transcribiendo', 'thinking'); text = await transcribe(audio); }
     } else {
       if (!voiceSupported) { toast('Tu navegador no soporta voz. Activa Whisper local en Ajustes o usa Safari/Chrome.'); return; }
       text = await listen({ onEnd: () => { btn.classList.remove('active'); setStatus('local'); } });
     }
-    if (text) { showView('inicio'); await handleInput(text, { fromVoice: true }); }
+    if (text) { uiTone('done'); showView('inicio'); await handleInput(text, { fromVoice: true }); }
     else toast('No te escuché. Inténtalo otra vez.');
-  } catch (err) { hud('error'); toast(err.message, 5000); }
+  } catch (err) { hud('error'); uiTone('error'); toast(err.message, 5000); }
   finally { state.listening = false; btn.classList.remove('active'); setStatus('local'); setTimeout(() => hud('inactivo'), 800); }
 }
-// Hablar en voz alta con el orbe en estado “hablando”
-const _speak = speak;
-function speakHud(text) { hud('hablando'); _speak(text); const ms = Math.min(12000, 60 * (text || '').length); setTimeout(() => hud('inactivo'), ms); }
+// Hablar con la voz de Brainer; el cerebro pasa a estado “hablando”
+function speakHud(text) {
+  hud('hablando');
+  personaSpeak(text, { voiceName: state.settings.voiceName, pitch: state.settings.pitch || 0.82, onEnd: () => hud('inactivo') });
+  setTimeout(() => { if ($('#hud-state').textContent === 'Hablando') hud('inactivo'); }, Math.min(20000, 90 * (text || '').length));
+}
+function uiTone(kind) { if (state.settings.sounds !== false) tone(kind); }
 
 // ---------- Eventos ----------
 function bind() {
@@ -676,7 +722,7 @@ function bind() {
   });
   document.addEventListener('change', e => {
     const td = e.target.closest('[data-task-done]');
-    if (td) notes.get(td.dataset.taskDone).then(async n => { if (n) { await notes.save({ ...n, tagText: (n.tags || []).map(t => '#' + t).join(' ') + ' #hecha' }); await loadNotes(); renderCockpit(); toast('Tarea completada'); } });
+    if (td) notes.get(td.dataset.taskDone).then(async n => { if (n) { await notes.save({ ...n, tagText: [...(n.tags || []), 'hecha'].join(',') }); await loadNotes(); renderCockpit(); toast('Tarea completada'); } });
     const done = e.target.closest('[data-done]');
     if (done) reminders.all().then(async all => { const r = all.find(x => x.id === done.dataset.done); if (r) { r.done = done.checked; await reminders.save(r); renderReminders(); } });
   });
@@ -710,15 +756,14 @@ function bind() {
       const made = parseCards(res.text);
       for (const c of made) await cards.save({ ...c, noteId: n.id });
       const clean = res.text.replace(/\[[\s\S]*\]$/, '').trim();
-      $('#note-body').value = `${n.body}\n\n---\n✨ Claude (${res.model}):\n${clean}`;
+      $('#note-body').value = `${n.body}\n\n---\nClaude (${res.model}):\n${clean}`;
       scheduleSave();
       toast(made.length ? `Listo. ${made.length} tarjetas añadidas a Estudio.` : 'Listo.');
     } catch (err) { toast(err.message, 5000); }
   };
   // Grafo
   $('#graph-filter').onchange = refreshGraph;
-  $('#btn-graph-fit').onclick = () => state.graph.fit();
-  window.addEventListener('resize', () => { if (state.view === 'grafo') state.graph.resize(); });
+  $('#btn-graph-fit').onclick = () => { state.brain.zoom = 1; state.brain.rotX = 0.35; state.brain.clearActivation(); };
   // Estudio
   $('#btn-study-start').onclick = startStudy;
   $('#btn-gen-cards').onclick = generateCards;
@@ -733,21 +778,22 @@ function bind() {
   // Perfil
   $('#btn-edit-profile').onclick = async () => {
     const p = await kv.get('profile', {});
-    $('#pf-name').value = p.name || ''; $('#pf-title').value = p.title || ''; $('#pf-bio').value = p.bio || '';
+    $('#pf-name').value = p.name || ''; $('#pf-title').value = p.title || ''; $('#pf-bio').value = p.bio || ''; $('#pf-voice').value = p.voice || ''; $('#pf-rules').value = p.rules || '';
     $('#pf-links').value = (p.links || []).join(', '); $('#pf-goals').value = (p.goals || []).join(', ');
     $('#profile-form').hidden = false;
   };
   $('#pf-cancel').onclick = () => { $('#profile-form').hidden = true; };
   $('#profile-form').onsubmit = async e => {
     e.preventDefault();
-    await kv.set('profile', { name: $('#pf-name').value.trim(), title: $('#pf-title').value.trim(), bio: $('#pf-bio').value.trim(), links: split($('#pf-links').value), goals: split($('#pf-goals').value) });
+    await kv.set('profile', { name: $('#pf-name').value.trim(), title: $('#pf-title').value.trim(), bio: $('#pf-bio').value.trim(), voice: $('#pf-voice').value.trim(), rules: $('#pf-rules').value.trim(), links: split($('#pf-links').value), goals: split($('#pf-goals').value) });
     $('#profile-form').hidden = true; renderProfile(); toast('Perfil guardado');
   };
   // Ajustes
-  ['#set-apikey', '#set-model-light', '#set-model-heavy', '#set-ask-before-ai', '#set-proactive', '#set-checkin-hour', '#set-voice-reply', '#set-local-whisper', '#set-local-embeddings'].forEach(s => $(s).onchange = persistSettings);
+  ['#set-apikey', '#set-model-light', '#set-model-heavy', '#set-ask-before-ai', '#set-proactive', '#set-checkin-hour', '#set-voice-reply', '#set-local-whisper', '#set-local-embeddings', '#set-voice', '#set-pitch', '#set-sounds'].forEach(s => $(s).onchange = persistSettings);
+  $('#btn-test-voice').onclick = async () => { await persistSettings(); uiTone('done'); speakHud('Sistemas en línea. Soy Brainer, tu cerebro virtual. ¿Por dónde empezamos?'); };
   $('#btn-load-models').onclick = loadModels;
   $('#btn-reindex').onclick = async () => { if (!state.settings.localEmbeddings) { toast('Activa la búsqueda semántica primero'); return; } toast('Indexando…'); const n = await indexNotes(); toast(`${n} notas indexadas`); renderCockpit(); };
-  onProgress(p => { const el = $('#models-status'); if (!el) return; const name = p.model.split('/').pop(); el.textContent = p.status === 'progress' ? `${name}: ${p.file || ''} ${Math.round(p.progress)}%` : p.status === 'ready' ? `${name}: listo ✓` : `${name}: ${p.status}`; });
+  onProgress(p => { const el = $('#models-status'); if (!el) return; const name = p.model.split('/').pop(); el.textContent = p.status === 'progress' ? `${name}: ${p.file || ''} ${Math.round(p.progress)}%` : p.status === 'ready' ? `${name}: listo` : `${name}: ${p.status}`; });
   document.addEventListener('keydown', e => { if (e.ctrlKey && e.altKey && (e.key === 'j' || e.key === 'J')) { e.preventDefault(); startVoice(); } });
   // Sincronización
   $('#sync-enabled').onchange = async e => { const sc = await getSyncConfig(); await saveSyncConfig({ ...sc, enabled: e.target.checked }); renderSyncStatus(); if (e.target.checked) syncNow(); };
@@ -767,13 +813,13 @@ function bind() {
   $('#btn-sync-now').onclick = async () => { const r = await syncNow(); if (r.skipped) toast('Activa la sincronización primero'); else if (r.error) toast(r.error, 5000); else { await loadNotes(); toast(`Sincronizado: ${r.pushed} enviados, ${r.pulled} recibidos`); } renderSyncStatus(); };
   onSync(evt => {
     const badge = $('#sync-badge'); badge.hidden = false;
-    badge.textContent = evt.state === 'syncing' ? '☁️…' : evt.state === 'error' ? '☁️!' : '☁️';
+    badge.textContent = evt.state === 'syncing' ? 'SYNC…' : evt.state === 'error' ? 'SYNC !' : 'SYNC OK';
     badge.title = evt.state === 'error' ? evt.message : 'Sincronizado';
     if (evt.state === 'ok' && evt.pulled > 0) {
       const before = state.notes.filter(n => (n.tags || []).includes('claude')).length;
       loadNotes().then(() => {
         const after = state.notes.filter(n => (n.tags || []).includes('claude')).length;
-        if (after > before) { toast('📄 Claude Code dejó un informe nuevo en tu bóveda', 6000); if (state.view === 'inicio') addMsg('brainer', 'Llegó un informe de Claude Code. Lo tienes en la Cabina y en la Bóveda.', { speakText: 'Llegó un informe de Claude Code.' }); }
+        if (after > before) { toast('Claude Code dejó un informe nuevo en tu bóveda', 6000); if (state.view === 'inicio') addMsg('brainer', 'Llegó un informe de Claude Code. Lo tienes en la Cabina y en la Bóveda.', { speakText: 'Llegó un informe de Claude Code.' }); }
       });
       if (state.view === 'recordatorios') renderReminders(); if (state.view === 'estudio') renderStudy(); if (state.view === 'ajustes') renderRequests();
     }
@@ -801,12 +847,20 @@ const split = s => s.split(',').map(x => x.trim()).filter(Boolean);
 // ---------- Arranque ----------
 async function init() {
   state.settings = await getSettings();
-  state.graph = new BrainGraph($('#graph'), { onOpen: openNote });
-  state.orb = new Orb($('#orb'));
+  state.brain = new Brain3D($('#brain'), {
+    onOpen: openNote,
+    onHover: n => { const h = $('#graph-hover'); if (!h) return; if (n && state.view === 'grafo') { h.hidden = false; h.innerHTML = `<b>${esc(n.title)}</b><span class="readout">${esc(TYPE_LABEL[n.type] || n.type)}${(n.tags || []).length ? ' · ' + n.tags.map(esc).join(', ') : ''}</span><p>${esc((n.body || '').slice(0, 160))}</p>`; } else h.hidden = true; },
+  });
   bind();
+  // Reloj y presencia
+  const clock = () => { const el = $('#tel-time'); if (el) el.textContent = new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }); }; clock(); setInterval(clock, 15000);
+  state.lastActivity = Date.now(); state.sessionStart = Date.now();
+  document.addEventListener('pointerdown', () => { state.lastActivity = Date.now(); if (!state.userGestured) { state.userGestured = true; firstGesture(); } }, { passive: true });
+  document.addEventListener('keydown', () => { state.lastActivity = Date.now(); }, { passive: true });
+  setInterval(presence, 60000);
   await loadNotes();
   await suggestFromNotes();
-  startTicker(fired => { for (const r of fired) { toast(`⏰ ${r.text}`, 6000); if (state.view === 'inicio') addMsg('brainer', `⏰ Te recuerdo: <b>${esc(r.text)}</b>`, { speakText: `Te recuerdo: ${r.text}` }); } });
+  startTicker(fired => { for (const r of fired) { toast(`Recordatorio: ${r.text}`, 6000); if (state.view === 'inicio') addMsg('brainer', `Te recuerdo: <b>${esc(r.text)}</b>`, { speakText: `Te recuerdo: ${r.text}` }); } });
   await refreshUsage();
   const v = location.hash.slice(1);
   showView(v && $('#view-' + v) ? v : 'inicio');
@@ -816,7 +870,7 @@ async function init() {
   if (sc.enabled) { syncNow({ silent: true }).then(() => loadNotes()); startAutoSync(60000); }
   // Ejemplo de bienvenida la primera vez
   if (!state.notes.length && !(await kv.get('welcomed'))) {
-    await notes.save({ id: 'welcome', title: 'Bienvenido a Brainer', type: 'nota', body: 'Este es tu cerebro virtual. Todo se guarda en tu dispositivo.\n\n## Cómo usarlo\n- Crea notas y enlázalas con [[Bienvenido a Brainer]] para ver conexiones en el grafo.\n- Usa etiquetas con almohadilla para agrupar, por ejemplo #estudio\n- Pulsa el micrófono y di: “búscame la nota de bienvenida”.\n- Di “recuérdame repasar mañana a las 8”.\n\n## Estudio\n**Repetición espaciada**: Brainer te pregunta lo que aprendes justo antes de que lo olvides.\nTérmino: definición → así Brainer genera tarjetas automáticamente.\n\n#brainer #guia' });
+    await notes.save({ id: 'welcome', title: 'Bienvenido a Brainer', type: 'nota', tagText: 'brainer, guía', body: 'Este es tu cerebro virtual. Todo se guarda en tu dispositivo y se sincroniza en tu propia nube.\n\n## Cómo usarlo\n- Salúdame. Pregúntame cómo estoy. Cuéntame qué estudiaste.\n- Crea notas y enlázalas con [[Bienvenido a Brainer]]: en el Cerebro verás la conexión.\n- Pulsa el micrófono y di: “búscame la nota de bienvenida”.\n- Di “recuérdame repasar mañana a las 8”.\n\n## Estudio\n**Repetición espaciada**: te pregunto lo que aprendes justo antes de que lo olvides.\nTérmino: definición → así genero tarjetas automáticamente.' });
     await kv.set('welcomed', true);
     await loadNotes();
   }

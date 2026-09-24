@@ -3,322 +3,241 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b0f1a">
+  <meta name="theme-color" content="#03060b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Brainer: tu cerebro virtual personal. Bóveda de conocimiento, grafo de nodos, voz, recordatorios y estudio.">
+  <meta name="description" content="Brainer: tu cerebro virtual personal con voz, memoria conectada y Claude Code como motor.">
   <title>Brainer</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/brainer.css">
 </head>
 <body>
+  <canvas id="brain" class="brain" aria-hidden="true"></canvas>
+  <div class="grid-bg" aria-hidden="true"></div>
+
   <div id="app">
-    <!-- Barra superior -->
     <header class="topbar">
-      <button class="icon-btn" id="btn-menu" aria-label="Menú">☰</button>
+      <button class="icon-btn" id="btn-menu" aria-label="Menú"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <div class="brand" id="brand">
-        <span class="brand-dot"></span>
-        <span class="brand-name">Brainer</span>
-        <span class="brand-status" id="brand-status">local</span>
-        <span class="brand-status" id="sync-badge" hidden title="Sincronización">☁️</span>
-        <span class="brand-status" id="tier-badge" hidden title="Nivel elegido por Neuro"></span>
+        <span class="brand-mark"><i></i></span>
+        <span class="brand-name">BRAINER</span>
+        <span class="readout" id="brand-status">LOCAL</span>
+        <span class="readout" id="sync-badge" hidden title="Sincronización">SYNC</span>
+        <span class="readout accent" id="tier-badge" hidden title="Nivel elegido por Neuro"></span>
       </div>
-      <button class="icon-btn" id="btn-voice" aria-label="Hablar con Brainer" title="Hablar con Brainer">🎤</button>
+      <div class="telemetry" id="telemetry">
+        <span><label>HORA</label><b id="tel-time">--:--</b></span>
+        <span><label>ESTADO</label><b id="hud-state">Listo</b></span>
+        <span class="wide"><label>NEURO</label><b id="hud-tier">en espera</b></span>
+      </div>
+      <button class="icon-btn mic" id="btn-voice" aria-label="Hablar con Brainer" title="Hablar (Ctrl+Alt+J)"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
     </header>
 
-    <!-- Navegación -->
     <nav class="sidenav" id="sidenav">
-      <a href="#inicio" data-view="inicio" class="nav-item active"><span>🧠</span> Brainer</a>
-      <a href="#boveda" data-view="boveda" class="nav-item"><span>🗄️</span> Bóveda</a>
-      <a href="#grafo" data-view="grafo" class="nav-item"><span>🕸️</span> Cerebro</a>
-      <a href="#estudio" data-view="estudio" class="nav-item"><span>📚</span> Estudio</a>
-      <a href="#recordatorios" data-view="recordatorios" class="nav-item"><span>⏰</span> Recordatorios</a>
-      <a href="#perfil" data-view="perfil" class="nav-item"><span>👤</span> Portafolio</a>
-      <a href="#ajustes" data-view="ajustes" class="nav-item"><span>⚙️</span> Ajustes</a>
-      <div class="nav-footer">
-        <div class="usage" id="usage-summary">Créditos usados hoy: 0 tokens</div>
-      </div>
+      <a href="#inicio" data-view="inicio" class="nav-item active"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg><span>Centro</span></a>
+      <a href="#boveda" data-view="boveda" class="nav-item"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg><span>Bóveda</span></a>
+      <a href="#grafo" data-view="grafo" class="nav-item"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="14" cy="11" r="1.5"/><path d="M7.5 7.2 12.7 10M15.4 9.8 16.7 9M13.3 12.5 12.3 16.2M7.2 7.5l4 8.8"/></svg><span>Cerebro</span></a>
+      <a href="#estudio" data-view="estudio" class="nav-item"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H4zM4 9h16M9 21h6"/></svg><span>Estudio</span></a>
+      <a href="#recordatorios" data-view="recordatorios" class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2M9 3h6"/></svg><span>Latido</span></a>
+      <a href="#perfil" data-view="perfil" class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Núcleo</span></a>
+      <a href="#ajustes" data-view="ajustes" class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span>Ajustes</span></a>
+      <div class="nav-footer"><div class="usage readout" id="usage-summary">CLAUDE CODE · 0 PENDIENTES</div></div>
     </nav>
     <div class="scrim" id="scrim"></div>
 
-    <!-- Vistas -->
     <main class="content">
-
-      <!-- CABINA: HUD + habilidades + conversación -->
-      <section class="view active" id="view-inicio">
-        <div class="hud">
-          <canvas id="orb" class="orb" aria-hidden="true"></canvas>
-          <div class="hud-text">
+      <section class="view active stage" id="view-inicio">
+        <div class="hud-corner tl"></div><div class="hud-corner tr"></div><div class="hud-corner bl"></div><div class="hud-corner br"></div>
+        <div class="stage-top">
+          <div class="greeting-block">
             <h1 id="greeting">Hola.</h1>
-            <p class="muted" id="daily-brief">Cargando tu día…</p>
-            <div class="hud-state"><span class="dot" id="hud-dot"></span><span id="hud-state">Listo</span> · <span class="muted small" id="hud-tier">Neuro en espera</span></div>
+            <p class="brief" id="daily-brief">Cargando tu día…</p>
+            <div class="suggestions" id="suggestions"></div>
           </div>
+          <aside class="panel-glass telemetry-panel">
+            <div class="ph">TELEMETRÍA</div>
+            <div class="trow"><label>Peticiones a Claude Code</label><b id="meter-requests">0 pendientes</b></div>
+            <div class="bar"><i id="meter-bar" style="width:0%"></i></div>
+            <div class="trow"><label>Redes locales</label><b id="meter-local">apagadas</b></div>
+            <div class="trow"><label>Sincronización</label><b id="meter-sync">sin conectar</b></div>
+            <div class="trow"><label>Latido</label><b id="meter-heartbeat">cada hora</b></div>
+          </aside>
         </div>
-
-        <div class="cockpit">
-          <div class="cockpit-row">
-            <div class="meter card">
-              <div class="meter-head"><span>Claude Code · peticiones</span><span id="meter-requests">0 pendientes</span></div>
-              <div class="bar"><i id="meter-bar" style="width:0%"></i></div>
-              <div class="meter-foot muted small"><span id="meter-local">Redes locales: apagadas</span><span id="meter-sync">Sin sincronizar</span></div>
-            </div>
-          </div>
-          <div class="skills" id="skills"></div>
-          <div class="cockpit-row two">
-            <div class="card">
-              <h3>Hoy</h3>
-              <div id="today-agenda" class="agenda"></div>
-            </div>
-            <div class="card">
-              <h3>Tareas</h3>
-              <div id="today-tasks" class="tasks"></div>
-            </div>
-          </div>
-          <div class="card" id="reports-card">
-            <div class="view-head"><h3>Informes de Claude Code</h3><span class="muted small">llegan a tu bóveda</span></div>
-            <div id="reports-list"></div>
-          </div>
+        <div class="stage-mid">
+          <div class="panel-glass"><div class="ph">HOY</div><div id="today-agenda" class="agenda"></div></div>
+          <div class="panel-glass"><div class="ph">TAREAS</div><div id="today-tasks" class="tasks"></div></div>
+          <div class="panel-glass"><div class="ph">INFORMES DE CLAUDE CODE</div><div id="reports-list"></div></div>
         </div>
-
-        <div class="suggestions" id="suggestions"></div>
+        <div class="skills-strip"><div class="ph">HABILIDADES</div><div class="skills" id="skills"></div></div>
         <div class="chat" id="chat"></div>
         <form class="composer" id="composer">
-          <input id="composer-input" type="text" placeholder="Habla con Brainer o pulsa el micrófono (Ctrl+Alt+J)" autocomplete="off">
-          <button type="submit" class="primary">Enviar</button>
+          <span class="prompt-mark">›</span>
+          <input id="composer-input" type="text" placeholder="Habla con Brainer…" autocomplete="off">
+          <button type="submit" class="btn primary">Enviar</button>
         </form>
       </section>
 
-      <!-- BÓVEDA -->
       <section class="view" id="view-boveda">
         <div class="view-head">
           <h2>Bóveda</h2>
           <div class="actions">
-            <label class="btn ghost" for="file-input">📎 Importar</label>
+            <label class="btn ghost" for="file-input">Importar</label>
             <input type="file" id="file-input" multiple accept=".txt,.md,.markdown,.json,.csv,.pdf,image/*" hidden>
-            <button class="btn primary" id="btn-new-note">+ Nueva nota</button>
+            <button class="btn primary" id="btn-new-note">Nueva captura</button>
           </div>
         </div>
-        <div class="searchbar">
-          <input id="vault-search" type="search" placeholder="Buscar en tu cerebro… (título, contenido, #etiqueta)">
-        </div>
+        <div class="searchbar"><span class="prompt-mark">›</span><input id="vault-search" type="search" placeholder="Buscar en tu cerebro"></div>
         <div class="chips" id="tag-chips"></div>
         <div class="note-list" id="note-list"></div>
       </section>
 
-      <!-- GRAFO -->
-      <section class="view" id="view-grafo">
-        <div class="view-head">
-          <h2>Tu cerebro</h2>
+      <section class="view stage" id="view-grafo">
+        <div class="view-head floating">
+          <h2>Cerebro</h2>
           <div class="actions">
             <select id="graph-filter" class="select">
-              <option value="">Todo</option>
-              <option value="nota">Notas</option>
-              <option value="informe">Informes</option>
-              <option value="tarea">Tareas</option>
-              <option value="idea">Ideas</option>
-              <option value="flashcard">Flashcards</option>
+              <option value="">Todo</option><option value="nota">Notas</option><option value="captura">Capturas</option><option value="informe">Informes</option><option value="tarea">Tareas</option><option value="idea">Ideas</option><option value="proyecto">Proyectos</option><option value="conexion">Conexiones</option>
             </select>
-            <button class="btn ghost" id="btn-graph-fit">Centrar</button>
+            <button class="btn ghost" id="btn-graph-fit">Recentrar</button>
           </div>
         </div>
-        <div class="graph-wrap">
-          <canvas id="graph"></canvas>
-          <div class="graph-legend">
-            <span><i style="background:var(--c-nota)"></i>nota</span>
-            <span><i style="background:var(--c-informe)"></i>informe</span>
-            <span><i style="background:var(--c-tarea)"></i>tarea</span>
-            <span><i style="background:var(--c-idea)"></i>idea</span>
-            <span><i style="background:var(--c-tag)"></i>etiqueta</span>
-          </div>
-          <div class="graph-hint muted">Toca un nodo para abrirlo · arrastra para mover · rueda para zoom</div>
+        <div class="graph-legend readout">
+          <span><i style="background:var(--c-nota);color:var(--c-nota)"></i>NOTA</span><span><i style="background:var(--c-informe);color:var(--c-informe)"></i>INFORME</span><span><i style="background:var(--c-tarea);color:var(--c-tarea)"></i>TAREA</span><span><i style="background:var(--c-idea);color:var(--c-idea)"></i>IDEA</span><span><i style="background:var(--c-proyecto);color:var(--c-proyecto)"></i>PROYECTO</span>
         </div>
+        <div class="graph-hover panel-glass" id="graph-hover" hidden></div>
+        <div class="graph-hint readout">ARRASTRA PARA GIRAR · RUEDA PARA ACERCAR · TOCA UN NODO PARA ABRIRLO</div>
       </section>
 
-      <!-- ESTUDIO -->
       <section class="view" id="view-estudio">
         <div class="view-head">
           <h2>Estudio</h2>
-          <div class="actions">
-            <button class="btn ghost" id="btn-gen-cards">✨ Generar tarjetas</button>
-            <button class="btn primary" id="btn-study-start">Repasar ahora</button>
-          </div>
+          <div class="actions"><button class="btn ghost" id="btn-gen-cards">Generar tarjetas</button><button class="btn primary" id="btn-study-start">Repasar ahora</button></div>
         </div>
         <div class="stats" id="study-stats"></div>
-        <div class="study-area" id="study-area">
-          <p class="muted">Brainer crea tarjetas de repaso a partir de tus notas (sin gastar créditos) y te las pregunta cuando toca, con repetición espaciada.</p>
-        </div>
+        <div class="study-area" id="study-area"><p class="muted">Brainer crea tarjetas a partir de tus notas y te las pregunta cuando toca, con repetición espaciada.</p></div>
       </section>
 
-      <!-- RECORDATORIOS -->
       <section class="view" id="view-recordatorios">
-        <div class="view-head">
-          <h2>Recordatorios</h2>
-          <button class="btn primary" id="btn-new-reminder">+ Nuevo</button>
-        </div>
-        <form class="card form" id="reminder-form" hidden>
+        <div class="view-head"><h2>Latido</h2><button class="btn primary" id="btn-new-reminder">Nuevo recordatorio</button></div>
+        <form class="panel-glass form" id="reminder-form" hidden>
           <input id="rem-text" type="text" placeholder="¿Qué te recuerdo?" required>
           <input id="rem-when" type="datetime-local" required>
-          <div class="row">
-            <button type="submit" class="btn primary">Guardar</button>
-            <button type="button" class="btn ghost" id="rem-cancel">Cancelar</button>
-          </div>
+          <div class="row"><button type="submit" class="btn primary">Guardar</button><button type="button" class="btn ghost" id="rem-cancel">Cancelar</button></div>
         </form>
         <div id="reminder-list"></div>
-        <p class="muted small">Las notificaciones funcionan mientras Brainer esté abierto o instalado como app. Para avisos con la app cerrada en iPhone/iPad, instálala desde “Compartir → Añadir a pantalla de inicio”.</p>
+        <p class="muted small">Los avisos suenan mientras Brainer esté abierto o instalado como app. Claude Code, además, revisa tu bóveda cada hora y escribe el resumen cada noche.</p>
       </section>
 
-      <!-- PERFIL / PORTAFOLIO -->
       <section class="view" id="view-perfil">
-        <div class="view-head">
-          <h2>Portafolio</h2>
-          <button class="btn ghost" id="btn-edit-profile">Editar</button>
-        </div>
-        <div class="profile" id="profile-view"></div>
-        <form class="card form" id="profile-form" hidden>
+        <div class="view-head"><h2>Núcleo</h2><button class="btn ghost" id="btn-edit-profile">Editar</button></div>
+        <p class="muted small">Quién eres, cómo suenas y qué nunca se toca. Brainer y Claude Code lo leen antes de cada tarea.</p>
+        <div class="profile panel-glass" id="profile-view"></div>
+        <form class="panel-glass form" id="profile-form" hidden>
           <input id="pf-name" type="text" placeholder="Tu nombre">
           <input id="pf-title" type="text" placeholder="Qué haces / qué estudias">
-          <textarea id="pf-bio" rows="4" placeholder="Sobre ti"></textarea>
-          <input id="pf-links" type="text" placeholder="Enlaces separados por coma (GitHub, LinkedIn…)">
+          <textarea id="pf-bio" rows="3" placeholder="Sobre ti"></textarea>
+          <textarea id="pf-voice" rows="3" placeholder="Cómo sueno: tono, frases que uso, palabras que evito"></textarea>
+          <textarea id="pf-rules" rows="3" placeholder="Qué nunca se toca: límites, temas privados, horarios sagrados"></textarea>
+          <input id="pf-links" type="text" placeholder="Enlaces separados por coma">
           <input id="pf-goals" type="text" placeholder="Metas actuales separadas por coma">
-          <div class="row">
-            <button type="submit" class="btn primary">Guardar</button>
-            <button type="button" class="btn ghost" id="pf-cancel">Cancelar</button>
-          </div>
+          <div class="row"><button type="submit" class="btn primary">Guardar</button><button type="button" class="btn ghost" id="pf-cancel">Cancelar</button></div>
         </form>
         <h3>Proyectos</h3>
-        <p class="muted small">Cualquier nota con la etiqueta <code>#proyecto</code> aparece aquí.</p>
         <div id="project-list"></div>
       </section>
 
-      <!-- AJUSTES -->
       <section class="view" id="view-ajustes">
         <div class="view-head"><h2>Ajustes</h2></div>
-
-        <div class="card">
-          <h3>Redes neuronales en tu dispositivo</h3>
-          <p class="muted small">Modelos que corren en tu propio equipo, sin enviar nada fuera. La primera vez se descargan (Whisper ≈ 80 MB, embeddings ≈ 120 MB) y quedan guardados. Funcionan mejor en computadora o iPad.</p>
-          <label class="check"><input type="checkbox" id="set-local-whisper"> 🎙️ Whisper local: oír en el dispositivo (tu audio nunca sale)</label>
-          <label class="check"><input type="checkbox" id="set-local-embeddings"> 🧠 Búsqueda semántica: entiende el significado, no solo las palabras</label>
+        <div class="panel-glass block">
+          <div class="ph">VOZ</div>
+          <p class="muted small">Brainer habla con una voz grave del sistema en español. Elige la que más se acerque a Jarvis en tu dispositivo.</p>
           <div class="row">
-            <button class="btn ghost" id="btn-load-models">Descargar / preparar modelos ahora</button>
-            <button class="btn ghost" id="btn-reindex">Reindexar bóveda</button>
+            <label>Voz<select id="set-voice" class="select"><option value="">Automática (grave)</option></select></label>
+            <label>Tono <input id="set-pitch" type="range" min="0.6" max="1.2" step="0.02" value="0.82"></label>
+            <button class="btn ghost" id="btn-test-voice">Probar voz</button>
           </div>
-          <div id="models-status" class="muted small"></div>
-          <p class="muted small">La voz de respuesta usa la del sistema (Kokoro aún no habla español en el navegador).</p>
+          <label class="check"><input type="checkbox" id="set-voice-reply" checked> Responder en voz alta cuando le hablo</label>
+          <label class="check"><input type="checkbox" id="set-sounds" checked> Tonos de interfaz</label>
         </div>
-
-        <div class="card">
-          <h3>Claude Code (Nivel 3)</h3>
-          <p class="muted small">Las tareas exigentes las hace Claude Code desde tu repositorio: recoge tus peticiones de la bóveda cada hora, trabaja y deja el informe como nota. Sin clave de API.</p>
+        <div class="panel-glass block">
+          <div class="ph">PRESENCIA</div>
+          <label class="check"><input type="checkbox" id="set-proactive" checked> Que Brainer hable por su cuenta: repaso, recordatorios propuestos, observaciones</label>
+          <label>Hora del repaso diario <input id="set-checkin-hour" type="time" value="19:00"></label>
+        </div>
+        <div class="panel-glass block">
+          <div class="ph">REDES NEURONALES EN TU DISPOSITIVO</div>
+          <p class="muted small">Modelos que corren en tu equipo, sin enviar nada fuera. La primera vez se descargan (Whisper ≈ 80 MB, embeddings ≈ 120 MB) y quedan guardados.</p>
+          <label class="check"><input type="checkbox" id="set-local-whisper"> Whisper local: oír en el dispositivo</label>
+          <label class="check"><input type="checkbox" id="set-local-embeddings"> Búsqueda semántica: entender el significado</label>
+          <div class="row"><button class="btn ghost" id="btn-load-models">Preparar modelos</button><button class="btn ghost" id="btn-reindex">Reindexar bóveda</button></div>
+          <div id="models-status" class="readout"></div>
+        </div>
+        <div class="panel-glass block">
+          <div class="ph">CLAUDE CODE · MOTOR</div>
+          <p class="muted small">Las tareas exigentes las hace Claude Code desde tu repositorio: recoge tus peticiones cada hora, trabaja y deja el informe como nota.</p>
           <div id="requests-list"></div>
         </div>
-
-        <details class="card">
-          <summary>Conexión directa con la API de Claude (opcional, avanzado)</summary>
-          <p class="muted small">Brainer funciona sin esto. Solo usa Claude cuando se lo pides para tareas exigentes. La clave se guarda únicamente en este dispositivo.</p>
+        <div class="panel-glass block">
+          <div class="ph">SINCRONIZACIÓN ENTRE DISPOSITIVOS</div>
+          <p class="muted small">Tu cerebro vive en tu propia cuenta de Cloudflare. La misma dirección y frase en cada dispositivo.</p>
+          <input id="sync-url" type="text" placeholder="https://brainer-sync.kusical.workers.dev" value="https://brainer-sync.kusical.workers.dev" autocomplete="off">
+          <input id="sync-secret" type="password" placeholder="Frase secreta" autocomplete="off">
+          <div class="row"><button class="btn primary" id="btn-sync-connect">Conectar y sincronizar todo</button><button class="btn ghost" id="btn-sync-now">Sincronizar ahora</button><label class="check"><input type="checkbox" id="sync-enabled"> Activa</label></div>
+          <div id="sync-status" class="readout"></div>
+        </div>
+        <div class="panel-glass block">
+          <div class="ph">RESPALDO</div>
+          <div class="row"><button class="btn ghost" id="btn-export">Exportar cerebro</button><label class="btn ghost" for="import-input">Importar cerebro</label><input type="file" id="import-input" accept=".json" hidden><button class="btn danger" id="btn-wipe">Borrar todo</button></div>
+        </div>
+        <details class="panel-glass block">
+          <summary>API directa de Claude (opcional, avanzado)</summary>
+          <p class="muted small">No hace falta. Sin clave, el Nivel 3 lo hace Claude Code.</p>
           <input id="set-apikey" type="password" placeholder="sk-ant-…" autocomplete="off">
           <div class="row">
-            <label>Modelo ligero
-              <select id="set-model-light" class="select">
-                <option value="claude-haiku-4-5">Haiku 4.5 (más barato)</option>
-                <option value="claude-sonnet-5">Sonnet 5</option>
-              </select>
-            </label>
-            <label>Modelo exigente
-              <select id="set-model-heavy" class="select">
-                <option value="claude-opus-5">Opus 5</option>
-                <option value="claude-sonnet-5">Sonnet 5</option>
-              </select>
-            </label>
+            <label>Modelo ligero<select id="set-model-light" class="select"><option value="claude-haiku-4-5">Haiku 4.5</option><option value="claude-sonnet-5">Sonnet 5</option></select></label>
+            <label>Modelo exigente<select id="set-model-heavy" class="select"><option value="claude-opus-5">Opus 5</option><option value="claude-sonnet-5">Sonnet 5</option></select></label>
           </div>
           <label class="check"><input type="checkbox" id="set-ask-before-ai" checked> Preguntarme antes de gastar créditos</label>
+          <div id="usage-detail" class="readout"></div>
         </details>
-
-        <div class="card">
-          <h3>Brainer proactivo</h3>
-          <label class="check"><input type="checkbox" id="set-proactive" checked> Que Brainer me pregunte por mis estudios y proponga recordatorios solo</label>
-          <label>Hora del repaso diario <input id="set-checkin-hour" type="time" value="19:00"></label>
-          <label class="check"><input type="checkbox" id="set-voice-reply" checked> Responder en voz alta cuando le hablo</label>
-        </div>
-
-        <div class="card">
-          <h3>Sincronizar entre dispositivos</h3>
-          <p class="muted small">Brainer Sync guarda tu cerebro en tu propia cuenta de Cloudflare (gratis). Pon la misma dirección y frase secreta en cada dispositivo y se mantienen iguales solos. La frase se guarda solo aquí.</p>
-          <input id="sync-url" type="text" placeholder="https://brainer-sync.kusical.workers.dev" value="https://brainer-sync.kusical.workers.dev" autocomplete="off">
-          <input id="sync-secret" type="password" placeholder="Frase secreta (la misma que pusiste en GitHub como BRAINER_SECRET)" autocomplete="off">
-          <div class="row">
-            <button class="btn primary" id="btn-sync-connect">Conectar y sincronizar todo</button>
-            <button class="btn ghost" id="btn-sync-now">Sincronizar ahora</button>
-            <label class="check"><input type="checkbox" id="sync-enabled"> Activa</label>
-          </div>
-          <div id="sync-status" class="muted small"></div>
-        </div>
-
-        <div class="card">
-          <h3>Respaldo</h3>
-          <p class="muted small">Exporta tu cerebro completo (incluye adjuntos) e impórtalo donde quieras.</p>
-          <div class="row">
-            <button class="btn ghost" id="btn-export">⬇️ Exportar cerebro</button>
-            <label class="btn ghost" for="import-input">⬆️ Importar cerebro</label>
-            <input type="file" id="import-input" accept=".json" hidden>
-          </div>
-          <button class="btn danger" id="btn-wipe">Borrar todo</button>
-        </div>
-
-        <div class="card">
-          <h3>Uso de créditos</h3>
-          <div id="usage-detail" class="muted small"></div>
-        </div>
       </section>
     </main>
 
-    <!-- Editor de nota (panel) -->
     <aside class="panel" id="note-panel" hidden>
       <div class="panel-head">
         <select id="note-type" class="select">
-          <option value="nota">Nota</option>
-          <option value="informe">Informe</option>
-          <option value="tarea">Tarea</option>
-          <option value="idea">Idea</option>
+          <option value="nota">Nota</option><option value="captura">Captura</option><option value="informe">Informe</option><option value="tarea">Tarea</option><option value="idea">Idea</option><option value="proyecto">Proyecto</option><option value="conexion">Conexión</option>
         </select>
         <div class="actions">
-          <button class="icon-btn" id="note-preview" title="Vista previa">👁️</button>
-          <button class="icon-btn" id="note-ai" title="Pedir a Claude Code un informe sobre esta nota">✨</button>
-          <button class="icon-btn" id="note-delete" title="Eliminar">🗑️</button>
-          <button class="icon-btn" id="note-close" title="Cerrar">✕</button>
+          <button class="icon-btn" id="note-preview" title="Vista previa"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          <button class="icon-btn" id="note-ai" title="Pedir a Claude Code un informe sobre esta nota"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg></button>
+          <button class="icon-btn" id="note-delete" title="Eliminar"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+          <button class="icon-btn" id="note-close" title="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
       </div>
       <input id="note-title" type="text" placeholder="Título">
-      <input id="note-tags" type="text" placeholder="#etiquetas separadas por espacio">
-      <textarea id="note-body" placeholder="Escribe aquí en markdown. Enlaza otras notas con [[Título de la nota]]."></textarea>
+      <input id="note-tags" type="text" placeholder="Etiquetas separadas por coma">
+      <textarea id="note-body" placeholder="Escribe en markdown. Enlaza otras notas con [[Título]]."></textarea>
       <div id="note-rendered" class="rendered" hidden></div>
       <div class="attachments" id="note-attachments"></div>
-      <div class="panel-foot muted small">
-        <span id="note-meta"></span>
-        <span id="note-backlinks"></span>
-      </div>
+      <div class="panel-foot readout"><span id="note-meta"></span><span id="note-backlinks"></span></div>
     </aside>
 
-    <!-- Diálogo de IA -->
     <dialog id="ai-dialog">
       <form method="dialog" class="ai-form">
         <h3 id="ai-dialog-title">Pedir a Claude</h3>
-        <p class="muted small">Esto gasta créditos de tu cuenta. Elige el nivel:</p>
-        <label class="radio"><input type="radio" name="tier" value="light" checked> Ligero — rápido y barato</label>
-        <label class="radio"><input type="radio" name="tier" value="heavy"> Exigente — razonamiento profundo</label>
-        <textarea id="ai-prompt" rows="3" placeholder="¿Qué quieres que haga con esta nota? (resumir, explicar, crear preguntas…)"></textarea>
-        <div class="row">
-          <button value="cancel" class="btn ghost">Cancelar</button>
-          <button value="ok" class="btn primary">Enviar</button>
-        </div>
+        <label class="radio"><input type="radio" name="tier" value="light" checked> Ligero</label>
+        <label class="radio"><input type="radio" name="tier" value="heavy"> Exigente</label>
+        <textarea id="ai-prompt" rows="3"></textarea>
+        <div class="row"><button value="cancel" class="btn ghost">Cancelar</button><button value="ok" class="btn primary">Enviar</button></div>
       </form>
     </dialog>
-
     <div class="toast" id="toast"></div>
   </div>
-
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

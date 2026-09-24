@@ -91,13 +91,16 @@ export const notes = {
   get: id => getOne('notes', id),
   async save(note) {
     const now = Date.now();
-    const parsed = parseNote(`${note.title || ''} ${note.body || ''} ${(note.tagText || '')}`);
+    const parsed = parseNote(`${note.title || ''} ${note.body || ''}`);
+    // Etiquetas: el campo dedicado (separadas por coma o espacio, con o sin #) más las que haya en el texto.
+    const fromField = (note.tagText !== undefined ? note.tagText : (note.tags || []).join(',')).split(/[,\s]+/).map(t => t.replace(/^#/, '').trim().toLowerCase()).filter(Boolean);
+    const tags = [...new Set([...fromField, ...parsed.tags])];
     const n = {
       id: note.id || uid(),
       title: (note.title || '').trim() || 'Sin título',
       body: note.body || '',
       type: note.type || 'nota',
-      tags: parsed.tags,
+      tags,
       links: parsed.links,
       files: note.files || [],
       created: note.created || now,

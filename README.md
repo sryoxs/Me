@@ -2,7 +2,36 @@
 
 Tu cerebro virtual personal. Una app web (PWA) que funciona en tu celular, iPad y computadora, guarda tu conocimiento como una bóveda de nodos conectados, te escucha por voz, te recuerda cosas sin que se lo pidas y te ayuda a estudiar.
 
-**Todo funciona en tu dispositivo y sin gastar créditos.** Claude solo entra cuando tú lo pides para tareas exigentes.
+**Todo funciona en tu dispositivo y sin gastar créditos.** El trabajo pesado lo hace Claude Code desde este repositorio y deja el informe en tu bóveda.
+
+## Las 5 piezas, un solo sistema
+
+| Pieza | Qué hace | Dónde está |
+|---|---|---|
+| **Motor** — Claude Code | El trabajo real. Recoge tus peticiones cada hora, ejecuta la habilidad y deja el informe en la bóveda. Cada noche escribe el resumen del día. | `.claude/skills/brainer-*/SKILL.md`, Rutinas de Claude Code |
+| **Memoria** — la Bóveda | Notas markdown con `[[enlaces]]`, `#etiquetas`, backlinks y vista previa. El grafo las muestra como una red neuronal que se activa al buscar. | `js/store.js`, `js/graph.js`, D1 `brainer` en Cloudflare |
+| **Oídos + boca** — Whisper local | Reconocimiento de voz con una red neuronal **en tu dispositivo** (el audio no sale). Respuesta con la voz del sistema. | `js/local-ai.js`, `js/voice.js` |
+| **Clasificador** — Neuro | Decide el nivel de cada petición: **1** reglas y datos guardados (instantáneo) · **2** redes neuronales locales (búsqueda semántica) · **3** Claude Code. Te dice qué eligió y por qué. | `js/neuro.js` |
+| **Cara** — Cabina + HUD | El orbe con estados (escuchando, pensando, hablando), medidor de peticiones, botones de habilidades, agenda, tareas e informes. `Ctrl+Alt+J` desde cualquier vista. | `js/hud.js`, `index.html` |
+
+### Habilidades (botones de la Cabina)
+
+`skills/skills.json` define los botones; cada uno de Nivel 3 apunta a un `SKILL.md` real en `.claude/skills/`:
+
+- 🗓️ **Planificar hoy** y 📚 **Repaso** — instantáneos, en tu dispositivo.
+- 📬 **Resumen del correo** — Claude Code lee tu Gmail (conector) y prioriza.
+- 🤖 **Noticias IA** — lo relevante de hoy en 5 puntos.
+- 🔬 **Investigación profunda** — informe con fuentes y preguntas de repaso.
+- 📈 **Revisión semanal** — tu semana puntuada.
+- 🌙 **Resumen diario** — cada noche, automático.
+
+### Cómo llega el trabajo a Claude Code
+
+1. Pulsas un botón (o Neuro decide Nivel 3). Brainer guarda una **petición** en la bóveda y la sincroniza.
+2. La Rutina **Brainer · motor** arranca cada hora, consulta `/engine/pending` en el Worker, ejecuta la habilidad y escribe el informe con un `POST /sync`.
+3. Tu app lo recibe en la siguiente sincronización: aparece en la Cabina y en la Bóveda, y genera tarjetas de estudio de las **negritas** y `Término: definición`.
+
+Requisito: la variable de entorno `BRAINER_SECRET` (tu frase secreta) en el entorno de Claude Code (menú del entorno en la barra de título → Editar → variable de entorno).
 
 ## Qué hace
 
@@ -30,11 +59,18 @@ python3 -m http.server 8080
 ```
 (Necesita servirse por HTTP; abrir el `index.html` directo no carga los módulos.)
 
-## Conectar Claude (opcional)
+## Redes neuronales en tu dispositivo
 
-1. Crea una clave en <https://console.anthropic.com/>.
-2. Pégala en **Ajustes → Conexión con Claude**. Se guarda solo en tu dispositivo, nunca se exporta.
-3. Cuando quieras, pulsa ✨ en una nota o en un resultado de búsqueda. Eliges **Ligero** (Haiku 4.5, muy barato) o **Exigente** (Opus 5). Brainer te muestra los tokens y el costo estimado de cada día.
+En **Ajustes → Redes neuronales en tu dispositivo** puedes activar:
+
+- **Whisper local** (`onnx-community/whisper-base`, ≈80 MB): transcribe tu voz en el navegador con WebGPU o WASM. Graba hasta que dejas de hablar. Si está apagado, Brainer usa el reconocimiento del sistema.
+- **Búsqueda semántica** (`paraphrase-multilingual-MiniLM-L12-v2`, ≈120 MB): calcula un vector por nota y encuentra por significado ("el informe donde hablaba de calor" → *Termodinámica*). Neuro usa el Nivel 2 cuando está lista.
+
+Los modelos se descargan una vez y quedan en la caché del navegador. Funcionan mejor en computadora o iPad.
+
+## API directa de Claude (opcional, avanzado)
+
+Si algún día tienes una clave de <https://console.anthropic.com/>, puedes ponerla en **Ajustes → Conexión directa**. No hace falta: sin clave, todo el Nivel 3 lo hace Claude Code.
 
 ## Varios dispositivos (Brainer Sync)
 
@@ -73,6 +109,13 @@ js/voice.js           reconocimiento y síntesis de voz
 js/ai.js              conexión con Claude y contador de créditos
 js/study.js           tarjetas y repetición espaciada
 js/reminders.js       recordatorios, sugerencias proactivas y resumen del día
+js/neuro.js           clasificador de niveles (1 reglas · 2 red local · 3 Claude Code)
+js/hud.js             el orbe: red neuronal animada con estados
+js/local-ai.js        Whisper y embeddings en el dispositivo (transformers.js)
+js/sync.js            sincronización con el Worker (Cloudflare D1)
+skills/skills.json    botones de la Cabina
+.claude/skills/       habilidades que ejecuta Claude Code (SKILL.md en español)
+worker/               Brainer Sync: Worker + D1, endpoints /sync y /engine/*
 sw.js                 modo sin conexión (PWA)
 ```
 

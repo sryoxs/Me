@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Brainer: tu cerebro virtual personal. Bóveda de conocimiento, grafo de nodos, voz, recordatorios y estudio.">
+  <title>Brainer</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/brainer.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Barra superior -->
+    <header class="topbar">
+      <button class="icon-btn" id="btn-menu" aria-label="Menú">☰</button>
+      <div class="brand" id="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">Brainer</span>
+        <span class="brand-status" id="brand-status">local</span>
+      </div>
+      <button class="icon-btn" id="btn-voice" aria-label="Hablar con Brainer" title="Hablar con Brainer">🎤</button>
+    </header>
+
+    <!-- Navegación -->
+    <nav class="sidenav" id="sidenav">
+      <a href="#inicio" data-view="inicio" class="nav-item active"><span>🧠</span> Brainer</a>
+      <a href="#boveda" data-view="boveda" class="nav-item"><span>🗄️</span> Bóveda</a>
+      <a href="#grafo" data-view="grafo" class="nav-item"><span>🕸️</span> Cerebro</a>
+      <a href="#estudio" data-view="estudio" class="nav-item"><span>📚</span> Estudio</a>
+      <a href="#recordatorios" data-view="recordatorios" class="nav-item"><span>⏰</span> Recordatorios</a>
+      <a href="#perfil" data-view="perfil" class="nav-item"><span>👤</span> Portafolio</a>
+      <a href="#ajustes" data-view="ajustes" class="nav-item"><span>⚙️</span> Ajustes</a>
+      <div class="nav-footer">
+        <div class="usage" id="usage-summary">Créditos usados hoy: 0 tokens</div>
+      </div>
+    </nav>
+    <div class="scrim" id="scrim"></div>
+
+    <!-- Vistas -->
+    <main class="content">
+
+      <!-- INICIO: conversación con Brainer -->
+      <section class="view active" id="view-inicio">
+        <div class="hero">
+          <h1 id="greeting">Hola.</h1>
+          <p class="muted" id="daily-brief">Cargando tu día…</p>
+        </div>
+        <div class="suggestions" id="suggestions"></div>
+        <div class="chat" id="chat"></div>
+        <form class="composer" id="composer">
+          <input id="composer-input" type="text" placeholder="Pídele algo a Brainer: “búscame el informe de física”, “recuérdame estudiar a las 7pm”, “crea nota…”" autocomplete="off">
+          <button type="submit" class="primary">Enviar</button>
+        </form>
+      </section>
+
+      <!-- BÓVEDA -->
+      <section class="view" id="view-boveda">
+        <div class="view-head">
+          <h2>Bóveda</h2>
+          <div class="actions">
+            <label class="btn ghost" for="file-input">📎 Importar</label>
+            <input type="file" id="file-input" multiple accept=".txt,.md,.markdown,.json,.csv,.pdf,image/*" hidden>
+            <button class="btn primary" id="btn-new-note">+ Nueva nota</button>
+          </div>
+        </div>
+        <div class="searchbar">
+          <input id="vault-search" type="search" placeholder="Buscar en tu cerebro… (título, contenido, #etiqueta)">
+        </div>
+        <div class="chips" id="tag-chips"></div>
+        <div class="note-list" id="note-list"></div>
+      </section>
+
+      <!-- GRAFO -->
+      <section class="view" id="view-grafo">
+        <div class="view-head">
+          <h2>Tu cerebro</h2>
+          <div class="actions">
+            <select id="graph-filter" class="select">
+              <option value="">Todo</option>
+              <option value="nota">Notas</option>
+              <option value="informe">Informes</option>
+              <option value="tarea">Tareas</option>
+              <option value="idea">Ideas</option>
+              <option value="flashcard">Flashcards</option>
+            </select>
+            <button class="btn ghost" id="btn-graph-fit">Centrar</button>
+          </div>
+        </div>
+        <div class="graph-wrap">
+          <canvas id="graph"></canvas>
+          <div class="graph-legend">
+            <span><i style="background:var(--c-nota)"></i>nota</span>
+            <span><i style="background:var(--c-informe)"></i>informe</span>
+            <span><i style="background:var(--c-tarea)"></i>tarea</span>
+            <span><i style="background:var(--c-idea)"></i>idea</span>
+            <span><i style="background:var(--c-tag)"></i>etiqueta</span>
+          </div>
+          <div class="graph-hint muted">Toca un nodo para abrirlo · arrastra para mover · rueda para zoom</div>
+        </div>
+      </section>
+
+      <!-- ESTUDIO -->
+      <section class="view" id="view-estudio">
+        <div class="view-head">
+          <h2>Estudio</h2>
+          <div class="actions">
+            <button class="btn ghost" id="btn-gen-cards">✨ Generar tarjetas</button>
+            <button class="btn primary" id="btn-study-start">Repasar ahora</button>
+          </div>
+        </div>
+        <div class="stats" id="study-stats"></div>
+        <div class="study-area" id="study-area">
+          <p class="muted">Brainer crea tarjetas de repaso a partir de tus notas (sin gastar créditos) y te las pregunta cuando toca, con repetición espaciada.</p>
+        </div>
+      </section>
+
+      <!-- RECORDATORIOS -->
+      <section class="view" id="view-recordatorios">
+        <div class="view-head">
+          <h2>Recordatorios</h2>
+          <button class="btn primary" id="btn-new-reminder">+ Nuevo</button>
+        </div>
+        <form class="card form" id="reminder-form" hidden>
+          <input id="rem-text" type="text" placeholder="¿Qué te recuerdo?" required>
+          <input id="rem-when" type="datetime-local" required>
+          <div class="row">
+            <button type="submit" class="btn primary">Guardar</button>
+            <button type="button" class="btn ghost" id="rem-cancel">Cancelar</button>
+          </div>
+        </form>
+        <div id="reminder-list"></div>
+        <p class="muted small">Las notificaciones funcionan mientras Brainer esté abierto o instalado como app. Para avisos con la app cerrada en iPhone/iPad, instálala desde “Compartir → Añadir a pantalla de inicio”.</p>
+      </section>
+
+      <!-- PERFIL / PORTAFOLIO -->
+      <section class="view" id="view-perfil">
+        <div class="view-head">
+          <h2>Portafolio</h2>
+          <button class="btn ghost" id="btn-edit-profile">Editar</button>
+        </div>
+        <div class="profile" id="profile-view"></div>
+        <form class="card form" id="profile-form" hidden>
+          <input id="pf-name" type="text" placeholder="Tu nombre">
+          <input id="pf-title" type="text" placeholder="Qué haces / qué estudias">
+          <textarea id="pf-bio" rows="4" placeholder="Sobre ti"></textarea>
+          <input id="pf-links" type="text" placeholder="Enlaces separados por coma (GitHub, LinkedIn…)">
+          <input id="pf-goals" type="text" placeholder="Metas actuales separadas por coma">
+          <div class="row">
+            <button type="submit" class="btn primary">Guardar</button>
+            <button type="button" class="btn ghost" id="pf-cancel">Cancelar</button>
+          </div>
+        </form>
+        <h3>Proyectos</h3>
+        <p class="muted small">Cualquier nota con la etiqueta <code>#proyecto</code> aparece aquí.</p>
+        <div id="project-list"></div>
+      </section>
+
+      <!-- AJUSTES -->
+      <section class="view" id="view-ajustes">
+        <div class="view-head"><h2>Ajustes</h2></div>
+
+        <div class="card">
+          <h3>Conexión con Claude</h3>
+          <p class="muted small">Brainer funciona sin esto. Solo usa Claude cuando se lo pides para tareas exigentes. La clave se guarda únicamente en este dispositivo.</p>
+          <input id="set-apikey" type="password" placeholder="sk-ant-…" autocomplete="off">
+          <div class="row">
+            <label>Modelo ligero
+              <select id="set-model-light" class="select">
+                <option value="claude-haiku-4-5">Haiku 4.5 (más barato)</option>
+                <option value="claude-sonnet-5">Sonnet 5</option>
+              </select>
+            </label>
+            <label>Modelo exigente
+              <select id="set-model-heavy" class="select">
+                <option value="claude-opus-5">Opus 5</option>
+                <option value="claude-sonnet-5">Sonnet 5</option>
+              </select>
+            </label>
+          </div>
+          <label class="check"><input type="checkbox" id="set-ask-before-ai" checked> Preguntarme antes de gastar créditos</label>
+        </div>
+
+        <div class="card">
+          <h3>Brainer proactivo</h3>
+          <label class="check"><input type="checkbox" id="set-proactive" checked> Que Brainer me pregunte por mis estudios y proponga recordatorios solo</label>
+          <label>Hora del repaso diario <input id="set-checkin-hour" type="time" value="19:00"></label>
+          <label class="check"><input type="checkbox" id="set-voice-reply" checked> Responder en voz alta cuando le hablo</label>
+        </div>
+
+        <div class="card">
+          <h3>Respaldo y dispositivos</h3>
+          <p class="muted small">Exporta tu cerebro completo e impórtalo en tu otro dispositivo. La sincronización automática se puede activar después.</p>
+          <div class="row">
+            <button class="btn ghost" id="btn-export">⬇️ Exportar cerebro</button>
+            <label class="btn ghost" for="import-input">⬆️ Importar cerebro</label>
+            <input type="file" id="import-input" accept=".json" hidden>
+          </div>
+          <button class="btn danger" id="btn-wipe">Borrar todo</button>
+        </div>
+
+        <div class="card">
+          <h3>Uso de créditos</h3>
+          <div id="usage-detail" class="muted small"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Editor de nota (panel) -->
+    <aside class="panel" id="note-panel" hidden>
+      <div class="panel-head">
+        <select id="note-type" class="select">
+          <option value="nota">Nota</option>
+          <option value="informe">Informe</option>
+          <option value="tarea">Tarea</option>
+          <option value="idea">Idea</option>
+        </select>
+        <div class="actions">
+          <button class="icon-btn" id="note-ai" title="Pedir a Claude (gasta créditos)">✨</button>
+          <button class="icon-btn" id="note-delete" title="Eliminar">🗑️</button>
+          <button class="icon-btn" id="note-close" title="Cerrar">✕</button>
+        </div>
+      </div>
+      <input id="note-title" type="text" placeholder="Título">
+      <input id="note-tags" type="text" placeholder="#etiquetas separadas por espacio">
+      <textarea id="note-body" placeholder="Escribe aquí. Enlaza otras notas con [[Título de la nota]]."></textarea>
+      <div class="attachments" id="note-attachments"></div>
+      <div class="panel-foot muted small">
+        <span id="note-meta"></span>
+        <span id="note-backlinks"></span>
+      </div>
+    </aside>
+
+    <!-- Diálogo de IA -->
+    <dialog id="ai-dialog">
+      <form method="dialog" class="ai-form">
+        <h3 id="ai-dialog-title">Pedir a Claude</h3>
+        <p class="muted small">Esto gasta créditos de tu cuenta. Elige el nivel:</p>
+        <label class="radio"><input type="radio" name="tier" value="light" checked> Ligero — rápido y barato</label>
+        <label class="radio"><input type="radio" name="tier" value="heavy"> Exigente — razonamiento profundo</label>
+        <textarea id="ai-prompt" rows="3" placeholder="¿Qué quieres que haga con esta nota? (resumir, explicar, crear preguntas…)"></textarea>
+        <div class="row">
+          <button value="cancel" class="btn ghost">Cancelar</button>
+          <button value="ok" class="btn primary">Enviar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

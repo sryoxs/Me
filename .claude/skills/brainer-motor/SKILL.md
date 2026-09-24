@@ -28,6 +28,10 @@ curl -s -H "Authorization: Bearer $BRAINER_SECRET" https://brainer-sync.kusical.
 4. Escribe el informe como **nota** y marca la petición como hecha con un solo POST a `/sync` (ver formato).
 5. Al final, resume al usuario en 2–3 líneas qué informes dejaste.
 
+## Equipo
+
+Los subagentes de Brainer viven en `.claude/agents/brainer-*.md` (Arquitecto, Programador, Tester, Marketing, Investigador, Archivista, Tejedor, Escriba). Úsalos desde las habilidades cuando el trabajo lo pida: `brainer-proyecto` abre una sesión de Claude Code para construir apps; `brainer-ordenar-boveda` usa al Archivista y al Tejedor. Brainer no es solo estudio: también proyectos, código, ideas de negocio y trabajo diario del usuario.
+
 ## Formato para escribir en la bóveda
 
 ```bash

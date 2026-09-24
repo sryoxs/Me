@@ -6,6 +6,8 @@
 import { parseIntent, normalize } from './search.js';
 
 const SKILL_HINTS = [
+  { skill: 'proyecto', re: /(armame|arma|construye|construyeme|crea|creame|hazme|desarrolla|programa|programame|montame|monta)\s+(una|un|la|el|mi)?\s*(app|aplicacion|web|pagina|sitio|bot|script|herramienta|juego|api|proyecto|sistema|dashboard|landing|tienda)/ },
+  { skill: 'ordenar-boveda', re: /(ordena|organiza|clasifica|limpia)\s+(mi\s+|la\s+)?(boveda|notas|capturas)/ },
   { skill: 'resumen-correo', re: /(correo|gmail|email|bandeja|mails?)/ },
   { skill: 'noticias-ia', re: /(noticias|novedades|actualidad).*(ia|inteligencia artificial)|(ia|inteligencia artificial).*(hoy|noticias)/ },
   { skill: 'revision-semanal', re: /(revision|repaso|balance|resumen).*(semana|semanal)|como (fue|me fue) (la|mi) semana/ },

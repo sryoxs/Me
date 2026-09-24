@@ -23,11 +23,11 @@ export function converse(text, ctx = {}) {
     return { text: `${l}${brief ? ' ' + brief : ''} ¿Por dónde empezamos?`, speak: `${l} ¿Por dónde empezamos?` };
   }
   if (/(como estas|como te encuentras|como vas|que haces|todo bien|como andas)/.test(t)) {
-    const l = pick([`Operativo al cien${N}. ${ctx.notes ? `Vigilo ${ctx.notes} notas y ${ctx.due || 0} tarjetas esperan repaso.` : 'Listo para lo que necesites.'}`, `Sin incidencias${N}. Tu cerebro está sincronizado y yo, atento.`, `Bien, gracias por preguntar${N}. Mejor cuando hay trabajo. ¿Qué toca?`]);
+    const l = pick([`Operativo al cien${N}. ${ctx.notes ? `Vigilo ${ctx.notes} notas y ${ctx.due || 0} tarjetas esperan repaso.` : 'Listo para lo que necesites.'}`, `Sin incidencias${N}. Tu bóveda está sincronizada y yo, atento.`, `Bien, gracias por preguntar${N}. Mejor cuando hay trabajo. ¿Qué toca?`]);
     return { text: l, speak: l };
   }
   if (/(quien eres|que eres|como te llamas|presentate|que puedes hacer|que sabes hacer|ayuda|que haces tu)/.test(t)) {
-    const l = `Soy Brainer${N}, tu cerebro virtual. Recuerdo lo que guardas, lo conecto, te lo devuelvo cuando lo pides, te recuerdo lo importante y te ayudo a estudiar. Lo pesado se lo paso a Claude Code y el informe vuelve aquí.`;
+    const l = `Soy Brainer${N}, tu inteligencia personal. Recuerdo lo que guardas, lo conecto, te lo devuelvo cuando lo pides, te recuerdo lo importante y te ayudo a estudiar. Lo pesado se lo paso a Claude Code y el informe vuelve aquí.`;
     return { text: l + ' Prueba: “recuérdame…”, “guarda que…”, “qué tengo sobre…”, “investiga…”.', speak: l };
   }
   if (/^(gracias|muchas gracias|genial|perfecto|excelente|bien hecho|buen trabajo|te quiero|eres el mejor)/.test(t)) {
@@ -52,7 +52,7 @@ export function converse(text, ctx = {}) {
     return { text: l, speak: l };
   }
   if (/(motivame|dame animos|necesito motivacion|una frase)/.test(t)) {
-    const l = pick([`Lo que repasas hoy es lo que recuerdas en el examen${N}. Una tarjeta ahora vale por diez la víspera.`, `No hace falta que sea perfecto${N}. Hace falta que sea hoy.`, `Cada nota que guardas es una neurona más en este cerebro${N}. Sigamos.`]);
+    const l = pick([`Lo que repasas hoy es lo que recuerdas en el examen${N}. Una tarjeta ahora vale por diez la víspera.`, `No hace falta que sea perfecto${N}. Hace falta que sea hoy.`, `Cada nota que guardas es una neurona más en Brainer${N}. Sigamos.`]);
     return { text: l, speak: l };
   }
   if (/^(si|no|vale|ok|okey|dale|claro|bueno)\.?$/.test(t)) {

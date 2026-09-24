@@ -1,0 +1,13 @@
+{
+  "descripcion": "El equipo de Brainer: agentes con memoria propia que Claude Code invoca como subagentes. Cada uno vive en .claude/agents/<id>.md.",
+  "agentes": [
+    { "id": "arquitecto", "nombre": "Arquitecto", "rol": "Diseña la estructura de tus proyectos y apps: alcance, módulos, decisiones técnicas.", "icono": "plan" },
+    { "id": "programador", "nombre": "Programador", "rol": "Escribe y modifica código en tus repositorios; abre ramas y deja el trabajo listo para revisar.", "icono": "code" },
+    { "id": "tester", "nombre": "Tester", "rol": "Prueba lo que hace el Programador: casos límite, errores, pruebas automáticas.", "icono": "check" },
+    { "id": "marketing", "nombre": "Marketing", "rol": "Nombres, mensajes, lanzamientos y contenido para tus proyectos, en tu voz.", "icono": "megaphone" },
+    { "id": "investigador", "nombre": "Investigador", "rol": "Busca, contrasta fuentes y resume lo que necesitas saber antes de decidir.", "icono": "research" },
+    { "id": "archivista", "nombre": "Archivista", "rol": "Ordena tu bóveda: clasifica capturas, etiqueta, enlaza y limpia.", "icono": "cards" },
+    { "id": "tejedor", "nombre": "Tejedor", "rol": "Cruza tus notas cada semana y encuentra patrones y conexiones que no viste.", "icono": "chart" },
+    { "id": "escriba", "nombre": "Escriba", "rol": "Convierte ideas y conexiones en textos terminados con tu estilo.", "icono": "news" }
+  ]
+}

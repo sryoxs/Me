@@ -45,7 +45,7 @@ Causas: crisis económica, desigualdad de los estamentos, ideas de la Ilustraci�
   { id: 'demo-app', type: 'idea', title: 'App de recetas con IA', created: ago(3), tagText: 'proyecto, ideas', body: `Una app que sugiere recetas con lo que hay en la nevera, con lista de compras automática.
 
 Primer paso: prototipo web en una semana. Podría usar el mismo enfoque local-primero de [[Brainer]].` },
-  { id: 'demo-brainer', type: 'nota', title: 'Brainer', created: ago(1), tagText: 'proyecto, brainer', body: `Mi cerebro virtual: bóveda de notas, grafo neuronal, voz local y Claude Code como motor.
+  { id: 'demo-brainer', type: 'nota', title: 'Brainer', created: ago(1), tagText: 'proyecto, brainer', body: `Mi inteligencia personal: bóveda de notas, grafo neuronal, voz local y Claude Code como motor.
 
 Cinco piezas, un sistema: motor, memoria, oídos y boca, clasificador (Neuro) y cara (Cabina).` },
   { id: 'demo-informe', type: 'informe', title: 'Investigación · Fotosíntesis · 23 sept', created: ago(1), tagText: 'informe, claude, investigacion, biologia', body: `## En una frase

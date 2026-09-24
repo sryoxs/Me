@@ -272,3 +272,11 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
   .panel { top: 0; width: 100%; padding-top: calc(14px + env(safe-area-inset-top)); }
   .profile .core { grid-template-columns: 1fr; }
 }
+
+/* Equipo */
+.team { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.agent { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; backdrop-filter: blur(8px); }
+.agent .ag-head { display: flex; align-items: center; gap: 8px; }
+.agent .ag-head svg { width: 16px; height: 16px; color: var(--c-informe); }
+.agent b { font-size: 0.82rem; }
+.agent small { color: var(--muted); font-size: 0.72rem; line-height: 1.35; }

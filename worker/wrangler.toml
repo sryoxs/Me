@@ -3,6 +3,10 @@ main = "index.js"
 compatibility_date = "2026-09-01"
 workers_dev = true
 
+# Workers AI: conversación, oído (Whisper) y voz (MeloTTS) sin claves externas.
+[ai]
+binding = "AI"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "brainer"

@@ -8,6 +8,7 @@ import { search, parseIntent, normalize } from './search.js';
 import { Brain3D } from './brain3d.js';
 import { listen, voiceSupported } from './voice.js';
 import { converse, welcomeLine, idleThought, listVoices, speak as personaSpeak, tone } from './persona.js';
+import { chat as cloudChat, transcribe as cloudTranscribe, speakCloud, stopSpeaking, recordClip, cloudReady, inAppBrowser } from './cloud-ai.js';
 import { ask, parseCards, usageToday } from './ai.js';
 import { cardsFromNote, schedule, dueCards, stats as studyStats } from './study.js';
 import { requestNotifPermission, startTicker, suggestFromNotes, dailyBrief } from './reminders.js';
@@ -29,6 +30,9 @@ const ICONS = {
   chart: '<svg viewBox="0 0 24 24"><path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3M20 16V6"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>',
   spark: '<svg viewBox="0 0 24 24"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>',
+  code: '<svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>',
+  megaphone: '<svg viewBox="0 0 24 24"><path d="M3 11v2a2 2 0 0 0 2 2h2l6 4V5L7 9H5a2 2 0 0 0-2 2zM17 9a4 4 0 0 1 0 6"/></svg>',
 };
 const TYPE_LABEL = { nota: 'nota', captura: 'captura', informe: 'informe', tarea: 'tarea', idea: 'idea', proyecto: 'proyecto', conexion: 'conexión', flashcard: 'tarjeta' };
 
@@ -84,6 +88,46 @@ function showTier(r) {
 }
 const tierNote = r => `<span class="tier">Neuro → <b>${TIER_LABEL[r.tier]}</b> · ${esc(r.reason)}</span>`;
 
+// Identidad de Brainer para el modelo de lenguaje: quién es, a quién sirve, qué sabe ahora mismo.
+async function brainSystemPrompt(context) {
+  const p = await kv.get('profile', {});
+  const name = p.name || 'Smith';
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'local';
+  const now = new Date().toLocaleString('es', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  const b = $('#daily-brief') ? $('#daily-brief').textContent : '';
+  return [
+    `Eres Brainer, la inteligencia personal de ${name}: un cerebro virtual al estilo de Jarvis (Iron Man). Sereno, preciso, cercano, con ingenio contenido. Le hablas de tú y lo llamas ${name} de vez en cuando, no en cada frase.`,
+    `Hablas SIEMPRE en español. Respuestas cortas: 1 a 3 frases salvo que te pidan detalle. Sin emojis, sin listas con asteriscos, sin hashtags. Nunca llames "cerebro" a la app ni a la bóveda: di "Brainer" o "tu bóveda".`,
+    `Hora local de ${name}: ${now} (zona ${tz}). Úsala si preguntan la hora o el día.`,
+    p.title ? `${name} se dedica a: ${p.title}.` : '', p.bio ? `Sobre ${name}: ${p.bio}` : '',
+    p.goals && p.goals.length ? `Metas actuales: ${p.goals.join('; ')}.` : '',
+    p.voice ? `Cómo le gusta que suenes: ${p.voice}` : '', p.rules ? `Límites que nunca se tocan: ${p.rules}` : '',
+    b ? `Estado de hoy: ${b}` : '',
+    `Brainer también ayuda con proyectos, código, ideas de negocio y trabajo diario, no solo estudio. Tiene un equipo de agentes (Arquitecto, Programador, Tester, Marketing, Investigador, Archivista, Tejedor, Escriba) que trabajan con Claude Code cuando la tarea es grande.`,
+    `Si ${name} pide algo que requiere trabajo real (investigar a fondo, construir una app, escribir un informe largo), dile que se lo pasas a Claude Code y que el resultado llegará a su bóveda; no lo hagas tú.`,
+    context ? `Notas de la bóveda de ${name} relevantes ahora (cítalas por título si las usas; no inventes notas):\n${context}` : `No hay notas relevantes para esto en la bóveda.`,
+  ].filter(Boolean).join('\n');
+}
+
+// Conversación con la IA de tu nube, con las notas relevantes como contexto.
+async function cloudConverse(text, r) {
+  const kw = search(state.notes, text, { limit: 4 });
+  let ids = kw.map(x => x.note.id);
+  try { if (await embeddingsReady()) for (const x of await semanticSearch(text, { limit: 4 })) if (!ids.includes(x.id)) ids.push(x.id); } catch (_) { /* sin semántica */ }
+  const used = ids.map(id => state.notes.find(n => n.id === id)).filter(Boolean).slice(0, 4);
+  const context = used.map(n => `— «${n.title}» (${TYPE_LABEL[n.type] || n.type}): ${stripTags(n.body).slice(0, 700)}`).join('\n');
+  if (used.length) state.brain.activate(used.map((n, i) => ({ id: n.id, score: 1 - i * 0.2 })));
+  state.history = (state.history || []).slice(-10);
+  const system = await brainSystemPrompt(context);
+  const res = await cloudChat({ system, messages: [...state.history, { role: 'user', content: text }] });
+  state.history.push({ role: 'user', content: text }, { role: 'assistant', content: res.text });
+  const cited = used.filter(n => res.text.toLowerCase().includes(n.title.toLowerCase().slice(0, 12)));
+  let html = esc(res.text);
+  for (const n of cited.slice(0, 2)) html += resultCard(n, '');
+  html += `<span class="tier">Neuro → <b>${r ? TIER_LABEL[r.tier] : 'Conversación'}</b> · IA en tu nube · ${esc(res.model.split('/').pop())}</span>`;
+  addMsg('brainer', html, { speakText: res.text, always: true });
+}
+
 // Punto de entrada: Neuro decide el nivel y Brainer actúa.
 async function handleInput(text, { fromVoice = false } = {}) {
   text = (text || '').trim();
@@ -95,14 +139,23 @@ async function handleInput(text, { fromVoice = false } = {}) {
   try {
     // Respuestas a preguntas abiertas de Brainer (recordatorio sin hora, “¿qué estudiaste hoy?”)
     if (state.pendingReminder || state.pendingCheckin) return await handleTier1(text, parseIntent(text), fromVoice);
-    // Nivel 0: conversación. “Hola” no es una búsqueda.
+    const r = route(text, { hasSemantic: await embeddingsReady() });
+    // Acciones concretas siempre locales: recordatorios, crear notas, repaso, red, resumen
+    const action = r.tier === 1 && ['reminder', 'create', 'study', 'graph', 'brief'].includes(r.intent.intent);
+    if (r.tier === 3) { showTier(r); return await handleTier3(r, text); }
+    if (action) { showTier(r); return await handleTier1(text, r.intent, fromVoice); }
+    // Conversación y preguntas: la IA de tu nube, con tus notas como contexto
+    if (await cloudReady()) {
+      const conv = { tier: 0, reason: 'IA en tu nube' }; showTier(conv);
+      try { return await cloudConverse(text, r.intent.intent === 'search' && !r.intent.fallbackAI ? r : conv); }
+      catch (err) { console.warn('IA en la nube no disponible', err); toast('IA en la nube no disponible: ' + err.message, 4000); }
+    }
+    // Sin nube: reglas de conversación y búsqueda local
     const profile = await kv.get('profile', {});
     const st = await studyStats();
     const conv = converse(text, { name: profile.name, notes: state.notes.length, due: st.due, brief: /^(hola|buen)/i.test(text) ? ($('#daily-brief').textContent || '') : '' });
     if (conv) { showTier({ tier: 0, reason: 'charla' }); addMsg('brainer', esc(conv.text), { speakText: conv.speak, always: true }); return; }
-    const r = route(text, { hasSemantic: await embeddingsReady() });
     showTier(r);
-    if (r.tier === 3) return await handleTier3(r, text);
     if (r.tier === 2) return await handleTier2(r, text, fromVoice);
     return await handleTier1(text, r.intent, fromVoice);
   } finally { hud('inactivo'); }
@@ -133,7 +186,7 @@ async function handleTier2(r, text, fromVoice) {
   const top = ranked[0];
   let html = r.intent.question
     ? `Según lo que tienes guardado:<br>${esc(extractiveSummary(top.note.body, 3))}${resultCard(top.note, '')}`
-    : `Esto es lo más parecido en tu cerebro:${resultCard(top.note, extractiveSummary(top.note.body, 2))}`;
+    : `Esto es lo más parecido en tu bóveda:${resultCard(top.note, extractiveSummary(top.note.body, 2))}`;
   const others = ranked.slice(1);
   if (others.length) html += `<span class="cite">Relacionado: ${others.map(x => `<a href="#" data-open="${x.id}">${esc(x.note.title)}</a>`).join(' · ')}</span>`;
   html += `<br><button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)}">Pedir a Claude Code un informe a fondo</button>${tierNote(r)}`;
@@ -173,7 +226,7 @@ async function handleTier1(text, intent, fromVoice) {
     await loadNotes();
     const made = cardsFromNote(n);
     for (const c of made.slice(0, 4)) await cards.save(c);
-    addMsg('brainer', `Guardado en tu cerebro. ${made.length ? `Creé ${Math.min(made.length, 4)} tarjetas para repasarlo después.` : 'Mañana te preguntaré sobre esto.'}`, { speakText: 'Guardado en tu cerebro.' });
+    addMsg('brainer', `Guardado en tu bóveda. ${made.length ? `Creé ${Math.min(made.length, 4)} tarjetas para repasarlo después.` : 'Mañana te preguntaré sobre esto.'}`, { speakText: 'Guardado en tu bóveda.' });
     return;
   }
   if (intent.intent === 'create') {
@@ -197,7 +250,7 @@ async function handleTier1(text, intent, fromVoice) {
   if (results.length) {
     const top = results[0];
     const others = results.slice(1);
-    let html = `Encontré esto en tu cerebro:${resultCard(top.note, top.snippet)}`;
+    let html = `Encontré esto en tu bóveda:${resultCard(top.note, top.snippet)}`;
     if (others.length) html += `<span class="cite">También: ${others.map(r => `<a href="#" data-open="${r.note.id}">${esc(r.note.title)}</a>`).join(' · ')}</span>`;
     if (state.settings.apiKey) html += `<br><button class="btn ghost small" data-ai-about="${top.note.id}" data-q="${esc(text)}">Pedir a Claude que responda con esta nota</button>`;
     else html += `<br><button class="btn ghost small" data-req-skill="investigacion" data-req-prompt="${esc(text)} (parte de la nota «${esc(top.note.title)}»)">Pedir a Claude Code un informe a fondo</button>`;
@@ -293,13 +346,21 @@ async function runSkill(id, { prompt } = {}) {
   }
   let p = prompt;
   if (!p && id === 'investigacion') { p = window.prompt('¿Qué tema quieres que investigue Claude Code?'); if (!p) return; }
+  if (!p && id === 'proyecto') { p = window.prompt('¿Qué quieres construir? Describe la app, web o herramienta en una o dos frases.'); if (!p) return; }
   showView('inicio');
   addMsg('user', `${esc(sk.nombre)}${p ? ': ' + esc(p) : ''}`);
   const r = { tier: 3, skill: id, prompt: p || sk.descripcion, reason: `botón “${sk.nombre}”` };
   showTier(r);
   await handleTier3(r, p || sk.nombre);
 }
+async function loadTeam() {
+  if (state.team) return state.team;
+  try { state.team = (await (await fetch('skills/equipo.json')).json()).agentes; } catch (_) { state.team = []; }
+  return state.team;
+}
 async function renderCockpit() {
+  const team = await loadTeam();
+  const tm = $('#team'); if (tm) tm.innerHTML = team.map(a => `<div class="agent"><span class="ag-head">${ICONS[a.icono] || ICONS.spark}<b>${esc(a.nombre)}</b></span><small>${esc(a.rol)}</small></div>`).join('');
   const skills = await loadSkills();
   const sk = $('#skills'); if (sk) sk.innerHTML = skills.map(s => `
     <button class="skill" data-skill="${s.id}"><span class="sk-head">${ICONS[s.icono] || ICONS.spark}<b>${esc(s.nombre)}</b></span><small>${esc(s.descripcion)}</small><span class="lvl ${s.nivel === 3 ? 'l3' : ''}">${s.nivel === 3 ? 'Claude Code' : 'instantáneo'}</span></button>`).join('');
@@ -324,10 +385,10 @@ async function renderRequests() {
 }
 
 async function runDemo() {
-  toast('Cargando cerebro de ejemplo…');
+  toast('Cargando bóveda de ejemplo…');
   await loadDemo(); await loadNotes(); await suggestFromNotes();
   await renderHome();
-  addMsg('brainer', `Cargué un cerebro de ejemplo: 8 notas enlazadas, una tarea con fecha, 2 recordatorios, 6 tarjetas y un informe que dejó Claude Code. Prueba:<br>• “búscame el informe de termodinámica”<br>• “qué dice la segunda ley”<br>• “recuérdame estudiar cuántica mañana a las 8”<br>• “investiga a fondo la revolución francesa” (Nivel 3)<br>• Mira <a href="#" data-view-go="grafo">Cerebro</a> y <a href="#" data-view-go="estudio">Estudio</a>. Cuando termines: “Quitar demo”.`);
+  addMsg('brainer', `Cargué una bóveda de ejemplo: 8 notas enlazadas, una tarea con fecha, 2 recordatorios, 6 tarjetas y un informe que dejó Claude Code. Prueba:<br>• “búscame el informe de termodinámica”<br>• “qué dice la segunda ley”<br>• “recuérdame estudiar cuántica mañana a las 8”<br>• “investiga a fondo la revolución francesa” (Nivel 3)<br>• Mira <a href="#" data-view-go="grafo">Cerebro</a> y <a href="#" data-view-go="estudio">Estudio</a>. Cuando termines: “Quitar demo”.`);
 }
 
 async function firstGesture() {
@@ -363,7 +424,7 @@ async function renderBrief(asMessage) {
   if (b.study.due) chips.push({ t: `Repasar ${b.study.due} tarjetas`, fn: () => { showView('estudio'); startStudy(); } });
   if (b.suggested.length) chips.push({ t: `${b.suggested.length} recordatorio${b.suggested.length > 1 ? 's' : ''} propuesto${b.suggested.length > 1 ? 's' : ''}`, fn: () => showView('recordatorios') });
   for (const s of b.subjects.slice(0, 2)) chips.push({ t: s.replace(/^#/, ''), fn: () => handleInput(`qué tengo sobre ${s.replace(/^#/, '')}`) });
-  chips.push({ t: 'Ver mi cerebro', fn: () => showView('grafo') });
+  chips.push({ t: 'Ver la red', fn: () => showView('grafo') });
   chips.push({ t: 'Nueva captura', fn: () => openNote(null) });
   const hasDemo = state.notes.some(n => n.id === 'demo-termo');
   if (!hasDemo && state.notes.length <= 2) chips.unshift({ t: 'Cargar demo', fn: runDemo });
@@ -603,7 +664,7 @@ async function renderProfile() {
       <div><div class="ph">CÓMO SUENO</div>${esc(p.voice || 'Frases cortas. Directo. Sin relleno.')}</div>
       <div><div class="ph">QUÉ NUNCA SE TOCA</div>${esc(p.rules || 'Nada definido todavía.')}</div>
     </div>
-    <p class="muted small" style="margin-top:14px">Tu cerebro: ${state.notes.length} notas · ${(await cards.all()).length} tarjetas · ${mem.inputs || 0} conversaciones con Brainer</p>`;
+    <p class="muted small" style="margin-top:14px">Brainer: ${state.notes.length} notas · ${(await cards.all()).length} tarjetas · ${mem.inputs || 0} conversaciones con Brainer</p>`;
   const projects = state.notes.filter(n => (n.tags || []).includes('proyecto'));
   $('#project-list').innerHTML = projects.length
     ? `<div class="note-list">${projects.map(n => `<article class="note-card" data-type="${esc(n.type)}" data-open="${n.id}"><h4>${esc(n.title)}</h4><p>${esc(n.body.slice(0, 200))}</p></article>`).join('')}</div>`
@@ -616,12 +677,12 @@ async function renderSettings() {
   $('#set-apikey').value = s.apiKey; $('#set-model-light').value = s.modelLight; $('#set-model-heavy').value = s.modelHeavy;
   $('#set-ask-before-ai').checked = s.askBeforeAI; $('#set-proactive').checked = s.proactive; $('#set-checkin-hour').value = s.checkinHour; $('#set-voice-reply').checked = s.voiceReply;
   $('#set-local-whisper').checked = !!s.localWhisper; $('#set-local-embeddings').checked = !!s.localEmbeddings;
-  $('#set-pitch').value = s.pitch || 0.82; $('#set-sounds').checked = s.sounds !== false;
+  $('#set-pitch').value = s.pitch || 0.82; $('#set-sounds').checked = s.sounds !== false; $('#set-cloud-voice').checked = s.cloudVoice !== false;
   const sel = $('#set-voice'); const voices = listVoices();
   sel.innerHTML = '<option value="">Automática (grave)</option>' + voices.map(v => `<option value="${esc(v.name)}" ${v.name === s.voiceName ? 'selected' : ''}>${esc(v.name)} · ${esc(v.lang)}</option>`).join('');
   await renderRequests();
   const sc = await getSyncConfig();
-  $('#sync-url').value = sc.url; $('#sync-secret').value = sc.secret; $('#sync-enabled').checked = sc.enabled;
+  $('#sync-url').value = sc.url || 'https://brainer-sync.kusical.workers.dev'; $('#sync-secret').value = sc.secret; $('#sync-enabled').checked = sc.enabled;
   await renderSyncStatus();
   await refreshUsage();
 }
@@ -648,6 +709,7 @@ async function persistSettings() {
     askBeforeAI: $('#set-ask-before-ai').checked, proactive: $('#set-proactive').checked, checkinHour: $('#set-checkin-hour').value || '19:00', voiceReply: $('#set-voice-reply').checked,
     localWhisper: $('#set-local-whisper').checked, localEmbeddings: $('#set-local-embeddings').checked, whisperModel: state.settings.whisperModel || 'onnx-community/whisper-base',
     voiceName: $('#set-voice').value, pitch: parseFloat($('#set-pitch').value) || 0.82, sounds: $('#set-sounds').checked,
+    cloudVoice: $('#set-cloud-voice').checked,
   };
   await saveSettings(s); state.settings = s; toast('Ajustes guardados');
 }
@@ -666,7 +728,13 @@ async function startVoice() {
   try {
     btn.classList.add('active'); setStatus('escuchando', 'listening'); hud('escuchando', 'oyendo…'); uiTone('listen');
     let text = '';
-    if (state.settings.localWhisper) {
+    stopSpeaking();
+    if (inAppBrowser()) { toast('Estás dentro del navegador de otra app y no permite el micrófono. Abre brainer.kusical.workers.dev en Safari o Chrome.', 7000); }
+    if (await cloudReady()) {
+      // Oído en tu nube: grabamos hasta el silencio y Whisper transcribe en tu Worker.
+      const clip = await recordClip({ onLevel: lvl => state.brain && state.brain.setState('escuchando', lvl) });
+      if (clip) { hud('pensando', 'Whisper en tu nube…'); setStatus('transcribiendo', 'thinking'); text = await cloudTranscribe(clip); }
+    } else if (state.settings.localWhisper) {
       // Red neuronal local: grabamos hasta el silencio y transcribimos en el dispositivo.
       const audio = await recordUntilSilence({ onLevel: lvl => state.brain && state.brain.setState('escuchando', lvl) });
       if (audio) { hud('pensando', 'Whisper transcribiendo en tu dispositivo…'); setStatus('transcribiendo', 'thinking'); text = await transcribe(audio); }
@@ -680,7 +748,15 @@ async function startVoice() {
   finally { state.listening = false; btn.classList.remove('active'); setStatus('local'); setTimeout(() => hud('inactivo'), 800); }
 }
 // Hablar con la voz de Brainer; el cerebro pasa a estado “hablando”
-function speakHud(text) {
+async function speakHud(text) {
+  if (!text) return;
+  if (state.settings.cloudVoice !== false && await cloudReady()) {
+    try {
+      hud('pensando', 'generando voz…');
+      await speakCloud(text, { speaker: state.settings.speaker || 'celeste', onStart: () => hud('hablando') });
+      hud('inactivo'); return;
+    } catch (err) { console.warn('voz en la nube no disponible', err); }
+  }
   hud('hablando');
   personaSpeak(text, { voiceName: state.settings.voiceName, pitch: state.settings.pitch || 0.82, onEnd: () => hud('inactivo') });
   setTimeout(() => { if ($('#hud-state').textContent === 'Hablando') hud('inactivo'); }, Math.min(20000, 90 * (text || '').length));
@@ -789,8 +865,8 @@ function bind() {
     $('#profile-form').hidden = true; renderProfile(); toast('Perfil guardado');
   };
   // Ajustes
-  ['#set-apikey', '#set-model-light', '#set-model-heavy', '#set-ask-before-ai', '#set-proactive', '#set-checkin-hour', '#set-voice-reply', '#set-local-whisper', '#set-local-embeddings', '#set-voice', '#set-pitch', '#set-sounds'].forEach(s => $(s).onchange = persistSettings);
-  $('#btn-test-voice').onclick = async () => { await persistSettings(); uiTone('done'); speakHud('Sistemas en línea. Soy Brainer, tu cerebro virtual. ¿Por dónde empezamos?'); };
+  ['#set-apikey', '#set-model-light', '#set-model-heavy', '#set-ask-before-ai', '#set-proactive', '#set-checkin-hour', '#set-voice-reply', '#set-local-whisper', '#set-local-embeddings', '#set-voice', '#set-pitch', '#set-sounds', '#set-cloud-voice'].forEach(s => $(s).onchange = persistSettings);
+  $('#btn-test-voice').onclick = async () => { await persistSettings(); uiTone('done'); const p = await kv.get('profile', {}); speakHud(`Sistemas en línea, ${p.name || 'Smith'}. Soy Brainer. ¿Por dónde empezamos?`); };
   $('#btn-load-models').onclick = loadModels;
   $('#btn-reindex').onclick = async () => { if (!state.settings.localEmbeddings) { toast('Activa la búsqueda semántica primero'); return; } toast('Indexando…'); const n = await indexNotes(); toast(`${n} notas indexadas`); renderCockpit(); };
   onProgress(p => { const el = $('#models-status'); if (!el) return; const name = p.model.split('/').pop(); el.textContent = p.status === 'progress' ? `${name}: ${p.file || ''} ${Math.round(p.progress)}%` : p.status === 'ready' ? `${name}: listo` : `${name}: ${p.status}`; });
@@ -804,7 +880,7 @@ function bind() {
       renderSyncStatus('Probando conexión…');
       await testConnection(url, secret);
       await saveSyncConfig({ url, secret, enabled: true }); $('#sync-enabled').checked = true;
-      renderSyncStatus('Conectado. Sincronizando todo tu cerebro…');
+      renderSyncStatus('Conectado. Sincronizando toda tu bóveda…');
       const r = await fullSync();
       if (r.error) throw new Error(r.error);
       await loadNotes(); renderSyncStatus(); toast(`Sincronizado: ${r.pushed} enviados, ${r.pulled} recibidos`);
@@ -830,14 +906,14 @@ function bind() {
     const data = await exportAll();
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `brainer-${new Date().toISOString().slice(0, 10)}.json`; a.click();
-    toast('Cerebro exportado');
+    toast('Bóveda exportada');
   };
   $('#import-input').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
-    try { await importAll(JSON.parse(await f.text())); await loadNotes(); toast('Cerebro importado'); } catch (err) { toast(err.message, 5000); }
+    try { await importAll(JSON.parse(await f.text())); await loadNotes(); toast('Bóveda importada'); } catch (err) { toast(err.message, 5000); }
     e.target.value = '';
   };
-  $('#btn-wipe').onclick = async () => { if (confirm('¿Borrar TODO tu cerebro de este dispositivo? Exporta antes si quieres conservarlo.')) { await wipeAll(); location.reload(); } };
+  $('#btn-wipe').onclick = async () => { if (confirm('¿Borrar TODO Brainer de este dispositivo? Exporta antes si quieres conservarlo.')) { await wipeAll(); location.reload(); } };
 
   window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && $('#view-' + v)) showView(v); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#note-panel').hidden) closeNote(); });
@@ -847,6 +923,8 @@ const split = s => s.split(',').map(x => x.trim()).filter(Boolean);
 // ---------- Arranque ----------
 async function init() {
   state.settings = await getSettings();
+  const prof = await kv.get('profile', {});
+  if (!prof.name) await kv.set('profile', { ...prof, name: 'Smith' });
   state.brain = new Brain3D($('#brain'), {
     onOpen: openNote,
     onHover: n => { const h = $('#graph-hover'); if (!h) return; if (n && state.view === 'grafo') { h.hidden = false; h.innerHTML = `<b>${esc(n.title)}</b><span class="readout">${esc(TYPE_LABEL[n.type] || n.type)}${(n.tags || []).length ? ' · ' + n.tags.map(esc).join(', ') : ''}</span><p>${esc((n.body || '').slice(0, 160))}</p>`; } else h.hidden = true; },
@@ -872,7 +950,7 @@ async function init() {
   if (sc.enabled) { syncNow({ silent: true }).then(() => loadNotes()); startAutoSync(60000); }
   // Ejemplo de bienvenida la primera vez
   if (!state.notes.length && !(await kv.get('welcomed'))) {
-    await notes.save({ id: 'welcome', title: 'Bienvenido a Brainer', type: 'nota', tagText: 'brainer, guía', body: 'Este es tu cerebro virtual. Todo se guarda en tu dispositivo y se sincroniza en tu propia nube.\n\n## Cómo usarlo\n- Salúdame. Pregúntame cómo estoy. Cuéntame qué estudiaste.\n- Crea notas y enlázalas con [[Bienvenido a Brainer]]: en el Cerebro verás la conexión.\n- Pulsa el micrófono y di: “búscame la nota de bienvenida”.\n- Di “recuérdame repasar mañana a las 8”.\n\n## Estudio\n**Repetición espaciada**: te pregunto lo que aprendes justo antes de que lo olvides.\nTérmino: definición → así genero tarjetas automáticamente.' });
+    await notes.save({ id: 'welcome', title: 'Bienvenido a Brainer', type: 'nota', tagText: 'brainer, guía', body: 'Esto es Brainer, tu inteligencia personal. Todo se guarda en tu dispositivo y se sincroniza en tu propia nube.\n\n## Cómo usarlo\n- Salúdame. Pregúntame cómo estoy. Cuéntame qué estudiaste.\n- Crea notas y enlázalas con [[Bienvenido a Brainer]]: en la Red verás la conexión.\n- Pulsa el micrófono y di: “búscame la nota de bienvenida”.\n- Di “recuérdame repasar mañana a las 8”.\n\n## Estudio\n**Repetición espaciada**: te pregunto lo que aprendes justo antes de que lo olvides.\nTérmino: definición → así genero tarjetas automáticamente.' });
     await kv.set('welcomed', true);
     await loadNotes();
   }

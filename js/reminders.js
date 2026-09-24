@@ -114,7 +114,7 @@ export async function dailyBrief() {
   const [hh, mm] = (s.checkinHour || '19:00').split(':').map(Number);
   const checkinToday = new Date(now); checkinToday.setHours(hh, mm, 0, 0);
   if (s.proactive && now >= checkinToday && lastCheckin < checkinToday.getTime()) {
-    questions.push('¿Qué estudiaste hoy? Cuéntamelo y lo guardo en tu cerebro.');
+    questions.push('¿Qué estudiaste hoy? Cuéntamelo y lo guardo en tu bóveda.');
   }
   if (s.proactive && stale > 3) questions.push(`Hay ${stale} notas que no tocas hace más de una semana. ¿Quieres que te pregunte sobre alguna?`);
   const subjects = topTags(allNotes, 3);

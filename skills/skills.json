@@ -16,6 +16,13 @@
       "descripcion": "Tarjetas que tocan hoy con repetición espaciada."
     },
     {
+      "id": "proyecto",
+      "nombre": "Nuevo proyecto o app",
+      "icono": "code",
+      "nivel": 3,
+      "descripcion": "Dices qué quieres construir y Claude Code abre una sesión que lo arma con el Arquitecto, el Programador y el Tester."
+    },
+    {
       "id": "resumen-correo",
       "nombre": "Resumen del correo",
       "icono": "mail",
@@ -49,6 +56,13 @@
       "icono": "moon",
       "nivel": 3,
       "descripcion": "Cada noche, Claude Code revisa tu bóveda y deja un resumen con preguntas de repaso."
+    },
+    {
+      "id": "ordenar-boveda",
+      "nombre": "Ordenar la bóveda",
+      "icono": "cards",
+      "nivel": 3,
+      "descripcion": "El Archivista clasifica tus capturas, etiqueta y enlaza; el Tejedor busca conexiones."
     }
   ]
 }

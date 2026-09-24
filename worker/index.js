@@ -34,10 +34,22 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     const url = new URL(request.url);
     if (url.pathname === '/health') return json({ ok: true });
-    if (!['/sync', '/engine/pending', '/engine/vault'].includes(url.pathname)) return json({ error: 'No encontrado' }, 404);
+    if (!['/sync', '/engine/pending', '/engine/vault', '/ai/chat', '/ai/stt', '/ai/tts', '/ai/debug'].includes(url.pathname)) return json({ error: 'No encontrado' }, 404);
     if (!(await authorized(request, env))) return json({ error: 'Frase secreta incorrecta' }, 401);
 
     const now = Date.now();
+    // --- IA en tu Cloudflare (Workers AI) ---
+    if (url.pathname.startsWith('/ai/')) {
+      if (!env.AI) return json({ error: 'Workers AI no está activado en este Worker' }, 503);
+      try {
+        if (url.pathname === '/ai/chat') return await aiChat(request, env);
+        if (url.pathname === '/ai/stt') return await aiStt(request, env);
+        if (url.pathname === '/ai/tts') return await aiTts(request, env);
+        if (url.pathname === '/ai/debug') return await aiDebug(env);
+      } catch (err) {
+        return json({ error: 'IA no disponible: ' + (err && err.message ? err.message : String(err)) }, 502);
+      }
+    }
     // --- Motor (Claude Code): peticiones pendientes y contenido de la bóveda ---
     if (url.pathname === '/engine/pending') {
       const { results } = await env.DB.prepare("SELECT id, data, updated FROM items WHERE kind = 'request' AND deleted = 0 ORDER BY updated ASC").all();
@@ -83,4 +95,89 @@ async function changesSince(env, since) {
   const { results } = await env.DB.prepare('SELECT id, kind, data, updated, deleted FROM items WHERE updated > ?1 ORDER BY updated ASC LIMIT 5000').bind(since).all();
   return results.map(r => ({ id: r.id, kind: r.kind, data: safeParse(r.data), updated: r.updated, deleted: !!r.deleted }));
 }
+// Los modelos de chat devuelven { response } o formato OpenAI { choices:[{message:{content}}] }.
+function extractText(r) {
+  if (!r) return '';
+  if (typeof r === 'string') return r.trim();
+  if (r.response) return String(r.response).trim();
+  const c = r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content;
+  if (c) return String(c).trim();
+  if (r.result) return extractText(r.result);
+  return '';
+}
 function safeParse(s) { try { return JSON.parse(s); } catch (_) { return {}; } }
+
+
+// ---------- Workers AI ----------
+const CHAT_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/zai-org/glm-4.7-flash', '@cf/meta/llama-3.1-8b-instruct-fast'];
+const STT_MODEL = '@cf/openai/whisper-large-v3-turbo';
+const TTS_MODELS = ['@cf/deepgram/aura-2-es', '@cf/myshell-ai/melotts'];
+
+// Conversación: { system, messages:[{role,content}], max_tokens } → { text }
+async function aiChat(request, env) {
+  const body = await request.json();
+  const messages = [];
+  if (body.system) messages.push({ role: 'system', content: String(body.system).slice(0, 12000) });
+  for (const m of (body.messages || []).slice(-16)) {
+    if (m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string') messages.push({ role: m.role, content: m.content.slice(0, 4000) });
+  }
+  if (!messages.some(m => m.role === 'user')) return json({ error: 'Falta el mensaje del usuario' }, 400);
+  let lastErr = null;
+  for (const model of CHAT_MODELS) {
+    try {
+      const r = await env.AI.run(model, { messages, max_tokens: Math.min(1024, body.max_tokens || 400), temperature: 0.6 });
+      const text = extractText(r);
+      if (text) return json({ text, model });
+    } catch (err) { lastErr = err; }
+  }
+  throw lastErr || new Error('Sin respuesta del modelo');
+}
+
+// Oído: cuerpo binario de audio (webm/mp4/wav) → { text }
+async function aiStt(request, env) {
+  const buf = new Uint8Array(await request.arrayBuffer());
+  if (!buf.length) return json({ error: 'Audio vacío' }, 400);
+  if (buf.length > 8 * 1024 * 1024) return json({ error: 'Audio demasiado largo' }, 413);
+  const r = await env.AI.run(STT_MODEL, { audio: toBase64(buf), language: 'es', task: 'transcribe' });
+  return json({ text: String((r && r.text) || '').trim(), model: STT_MODEL });
+}
+
+// Voz: { text } → audio/mpeg
+async function aiTts(request, env) {
+  const body = await request.json();
+  const text = String(body.text || '').replace(/[*_#`>\[\]]/g, '').slice(0, 900);
+  if (!text) return json({ error: 'Texto vacío' }, 400);
+  const url = new URL(request.url);
+  const only = url.searchParams.get('model');
+  let lastErr = null;
+  for (const model of TTS_MODELS) {
+    if (only && !model.includes(only)) continue;
+    try {
+      const input = model.includes('aura') ? { text, speaker: body.speaker || 'celeste' } : { prompt: text, lang: 'es' };
+      const r = await env.AI.run(model, input);
+      // Respuesta: flujo binario, o { audio: base64 }
+      if (r && typeof r === 'object' && r.audio) {
+        const bin = Uint8Array.from(atob(r.audio), c => c.charCodeAt(0));
+        return new Response(bin, { headers: { 'content-type': 'audio/mpeg', 'x-tts-model': model, ...CORS } });
+      }
+      return new Response(r, { headers: { 'content-type': 'audio/mpeg', 'x-tts-model': model, ...CORS } });
+    } catch (err) { lastErr = err; }
+  }
+  throw lastErr || new Error('Sin voz disponible');
+}
+
+function toBase64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+// Diagnóstico: prueba cada modelo y devuelve el error exacto.
+async function aiDebug(env) {
+  const out = {};
+  for (const m of CHAT_MODELS) { try { const r = await env.AI.run(m, { messages: [{ role: 'user', content: 'Di hola en español.' }], max_tokens: 20 }); out[m] = { ok: true, sample: JSON.stringify(r).slice(0, 200) }; } catch (e) { out[m] = { ok: false, error: String(e && e.message || e) }; } }
+  for (const [m, input] of [['@cf/deepgram/aura-2-es', { text: 'Hola Smith.' }], ['@cf/deepgram/aura-2-es', { text: 'Hola Smith.', speaker: 'celeste' }], ['@cf/myshell-ai/melotts', { prompt: 'Hola Smith.', lang: 'es' }], ['@cf/myshell-ai/melotts', { prompt: 'Hola Smith.' }]]) {
+    try { const r = await env.AI.run(m, input); out[m + ' ' + JSON.stringify(input)] = { ok: true, type: r && r.constructor && r.constructor.name, keys: r && typeof r === 'object' && !(r instanceof ReadableStream) ? Object.keys(r) : null }; } catch (e) { out[m + ' ' + JSON.stringify(input)] = { ok: false, error: String(e && e.message || e) }; }
+  }
+  return json(out);
+}

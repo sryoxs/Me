@@ -1,0 +1,13 @@
+{
+  "name": "me",
+  "private": true,
+  "description": "BRAINER: vault de cinco capas y la app Brainer (app/). Cloudflare Workers Builds publica app/ como el Worker \"me\".",
+  "scripts": {
+    "build": "echo \"Sin paso de build: app/ es estático\"",
+    "deploy": "wrangler deploy",
+    "deploy:worker": "cd worker && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.38.0"
+  }
+}

@@ -95,7 +95,7 @@ export async function loadDemo() {
   await requests.save({ id: 'demo-req1', skill: 'investigacion', prompt: 'investiga a fondo la fotosíntesis', status: 'hecho', created: ago(1), reportId: 'demo-informe' });
   await requests.save({ id: 'demo-req2', skill: 'noticias-ia', prompt: 'Lo relevante de hoy en inteligencia artificial', status: 'pendiente', created: Date.now() });
   const profile = await kv.get('profile', {});
-  if (!profile.name) await kv.set('profile', { name: 'Estudiante', title: 'Estudio física e historia · construyo Brainer', bio: 'Este es un perfil de ejemplo. Edítalo en Portafolio.', links: ['github.com/sryoxs'], goals: ['Aprobar física con 9', 'Terminar el ensayo de historia', 'Lanzar Brainer'] });
+  if (!profile.title) await kv.set('profile', { ...profile, name: profile.name || 'Smith', title: 'Estudio y construyo Brainer', goals: profile.goals && profile.goals.length ? profile.goals : ['Lanzar Brainer'] });
   const mem = await kv.get('memory', {});
   await kv.set('memory', { ...mem, studyLog: [{ day: ago(2), text: 'Termodinámica: leyes y entropía' }, { day: ago(1), text: 'Revolución francesa: cronología' }], demo: true });
   return NOTAS.length;

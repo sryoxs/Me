@@ -358,7 +358,27 @@ async function loadTeam() {
   try { state.team = (await (await fetch('skills/equipo.json')).json()).agentes; } catch (_) { state.team = []; }
   return state.team;
 }
+async function renderConnectCard() {
+  const el = $('#connect-card'); if (!el) return;
+  const ready = await cloudReady();
+  el.hidden = ready;
+  if (!ready) $('#connect-secret').value = '';
+}
+async function connectWithSecret(secret) {
+  const url = 'https://brainer-sync.kusical.workers.dev';
+  if (!secret) { toast('Escribe la frase secreta'); return false; }
+  try {
+    hud('pensando', 'conectando con tu nube…');
+    await testConnection(url, secret);
+    await saveSyncConfig({ url, secret, enabled: true });
+    const r = await fullSync(); if (r.error) throw new Error(r.error);
+    await loadNotes(); await renderConnectCard(); renderCockpit();
+    addMsg('brainer', 'Conectado a tu nube. Ya puedo oírte, hablar y conversar de verdad. Toca el micrófono o escríbeme.', { speakText: 'Conectado. Ya puedo oírte y hablarte.', always: true });
+    hud('inactivo'); return true;
+  } catch (err) { hud('error'); addMsg('brainer', `No pude conectar: ${esc(err.message)}. Revisa la frase e inténtalo de nuevo.`); setTimeout(() => hud('inactivo'), 1500); return false; }
+}
 async function renderCockpit() {
+  await renderConnectCard();
   const team = await loadTeam();
   const tm = $('#team'); if (tm) tm.innerHTML = team.map(a => `<div class="agent"><span class="ag-head">${ICONS[a.icono] || ICONS.spark}<b>${esc(a.nombre)}</b></span><small>${esc(a.rol)}</small></div>`).join('');
   const skills = await loadSkills();
@@ -729,7 +749,10 @@ async function startVoice() {
     btn.classList.add('active'); setStatus('escuchando', 'listening'); hud('escuchando', 'oyendo…'); uiTone('listen');
     let text = '';
     stopSpeaking();
-    if (inAppBrowser()) { toast('Estás dentro del navegador de otra app y no permite el micrófono. Abre brainer.kusical.workers.dev en Safari o Chrome.', 7000); }
+    const input = $('#composer-input'); const ph = input.placeholder;
+    if (inAppBrowser()) { addMsg('brainer', 'Estás dentro del navegador de otra app y no permite el micrófono. Abre <b>brainer.kusical.workers.dev</b> en Safari o Chrome.'); return; }
+    if (!(await cloudReady())) { showView('inicio'); addMsg('brainer', 'Para oírte bien necesito tu nube. Pega la frase secreta en la tarjeta de arriba y pulsa Conectar; tarda unos segundos.'); await renderConnectCard(); if (!voiceSupported && !state.settings.localWhisper) return; }
+    input.placeholder = 'Escuchando… habla y haz una pausa';
     if (await cloudReady()) {
       // Oído en tu nube: grabamos hasta el silencio y Whisper transcribe en tu Worker.
       const clip = await recordClip({ onLevel: lvl => state.brain && state.brain.setState('escuchando', lvl) });
@@ -742,10 +765,11 @@ async function startVoice() {
       if (!voiceSupported) { toast('Tu navegador no soporta voz. Activa Whisper local en Ajustes o usa Safari/Chrome.'); return; }
       text = await listen({ onEnd: () => { btn.classList.remove('active'); setStatus('local'); } });
     }
+    input.placeholder = ph;
     if (text) { uiTone('done'); showView('inicio'); await handleInput(text, { fromVoice: true }); }
-    else toast('No te escuché. Inténtalo otra vez.');
-  } catch (err) { hud('error'); uiTone('error'); toast(err.message, 5000); }
-  finally { state.listening = false; btn.classList.remove('active'); setStatus('local'); setTimeout(() => hud('inactivo'), 800); }
+    else addMsg('brainer', 'No te escuché. Acércate al micrófono, habla y haz una pausa de un segundo al terminar.');
+  } catch (err) { hud('error'); uiTone('error'); addMsg('brainer', esc(err.message)); }
+  finally { state.listening = false; btn.classList.remove('active'); setStatus('local'); $('#composer-input').placeholder = 'Habla con Brainer…'; setTimeout(() => hud('inactivo'), 800); }
 }
 // Hablar con la voz de Brainer; el cerebro pasa a estado “hablando”
 async function speakHud(text) {
@@ -771,6 +795,7 @@ function bind() {
   $('#brand').onclick = () => showView('inicio');
   $('#btn-voice').onclick = startVoice;
 
+  $('#connect-form').onsubmit = e => { e.preventDefault(); connectWithSecret($('#connect-secret').value.trim()); };
   $('#composer').onsubmit = e => { e.preventDefault(); const i = $('#composer-input'); const v = i.value; i.value = ''; handleInput(v); };
   document.addEventListener('click', e => {
     const open = e.target.closest('[data-open]');
@@ -925,7 +950,8 @@ async function init() {
   state.settings = await getSettings();
   const prof = await kv.get('profile', {});
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || '';
-  if (!prof.name || (tz && prof.timezone !== tz)) await kv.set('profile', { ...prof, name: prof.name || 'Smith', timezone: tz || prof.timezone });
+  const badName = !prof.name || prof.name === 'Estudiante';
+  if (badName || (tz && prof.timezone !== tz)) await kv.set('profile', { ...prof, name: badName ? 'Smith' : prof.name, timezone: tz || prof.timezone });
   state.brain = new Brain3D($('#brain'), {
     onOpen: openNote,
     onHover: n => { const h = $('#graph-hover'); if (!h) return; if (n && state.view === 'grafo') { h.hidden = false; h.innerHTML = `<b>${esc(n.title)}</b><span class="readout">${esc(TYPE_LABEL[n.type] || n.type)}${(n.tags || []).length ? ' · ' + n.tags.map(esc).join(', ') : ''}</span><p>${esc((n.body || '').slice(0, 160))}</p>`; } else h.hidden = true; },

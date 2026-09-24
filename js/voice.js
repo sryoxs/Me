@@ -8,12 +8,19 @@ export function listen({ lang = 'es-ES', onStart, onEnd, onError } = {}) {
   return new Promise((resolve, reject) => {
     if (!SR) { reject(new Error('Este navegador no soporta reconocimiento de voz.')); return; }
     const rec = new SR();
-    rec.lang = lang; rec.interimResults = false; rec.maxAlternatives = 1; rec.continuous = false;
-    let done = false;
-    rec.onstart = () => onStart && onStart();
-    rec.onresult = e => { done = true; resolve(e.results[0][0].transcript); };
+    rec.lang = lang; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = true;
+    let done = false, finalText = '', timer = null;
+    const finish = () => { if (done) return; done = true; try { rec.stop(); } catch (_) { /* ya parado */ } resolve(finalText.trim()); };
+    rec.onstart = () => { onStart && onStart(); timer = setTimeout(finish, 8000); };
+    rec.onresult = e => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' '; else interim += e.results[i][0].transcript; }
+      clearTimeout(timer); timer = setTimeout(finish, finalText ? 1200 : 2500);
+      if (!finalText && interim) finalText = ''; // esperamos al resultado final
+      if (finalText && !interim) { clearTimeout(timer); timer = setTimeout(finish, 900); }
+    };
     rec.onerror = e => { done = true; onError && onError(e); reject(new Error(e.error === 'not-allowed' ? 'Permite el micrófono para hablar con Brainer.' : 'No te escuché bien, inténtalo otra vez.')); };
-    rec.onend = () => { onEnd && onEnd(); if (!done) resolve(''); };
+    rec.onend = () => { onEnd && onEnd(); clearTimeout(timer); if (!done) { done = true; resolve(finalText.trim()); } };
     try { rec.start(); } catch (err) { reject(err); }
   });
 }

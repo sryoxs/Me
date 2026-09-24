@@ -45,11 +45,11 @@ export async function speakCloud(text, { speaker = 'celeste', onStart } = {}) {
   stopSpeaking();
   const audio = new Audio(URL.createObjectURL(blob));
   currentAudio = audio;
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     audio.onplay = () => onStart && onStart();
     audio.onended = () => { URL.revokeObjectURL(audio.src); if (currentAudio === audio) currentAudio = null; resolve(); };
-    audio.onerror = () => resolve();
-    audio.play().catch(() => resolve());
+    audio.onerror = () => reject(new Error('No se pudo reproducir la voz'));
+    audio.play().catch(err => reject(err));
   });
 }
 export function stopSpeaking() { if (currentAudio) { try { currentAudio.pause(); } catch (_) { /* nada */ } currentAudio = null; } }

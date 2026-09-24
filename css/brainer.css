@@ -280,3 +280,7 @@ dialog::backdrop { background: rgba(0,0,0,0.7); }
 .agent .ag-head svg { width: 16px; height: 16px; color: var(--c-informe); }
 .agent b { font-size: 0.82rem; }
 .agent small { color: var(--muted); font-size: 0.72rem; line-height: 1.35; }
+
+.connect { margin-bottom: 16px; border-color: var(--accent); box-shadow: 0 0 24px rgba(56,225,255,0.18); }
+.connect .row input { flex: 1; }
+.connect[hidden] { display: none; }

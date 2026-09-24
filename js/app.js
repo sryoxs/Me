@@ -138,6 +138,12 @@ async function handleInput(text, { fromVoice = false } = {}) {
   hud('pensando');
   try {
     // Respuestas a preguntas abiertas de Brainer (recordatorio sin hora, “¿qué estudiaste hoy?”)
+    // Si Brainer preguntó algo y el usuario responde con un saludo, una pregunta u otra orden, no lo tomamos como respuesta.
+    if (state.pendingCheckin) {
+      const pre = route(text, {});
+      const isAnswer = !converse(text, {}) && !/\?$/.test(text.trim()) && !(pre.tier === 3) && !(pre.tier === 1 && ['reminder', 'create', 'study', 'graph', 'brief'].includes(pre.intent.intent)) && text.trim().split(/\s+/).length >= 3;
+      if (!isAnswer) state.pendingCheckin = false;
+    }
     if (state.pendingReminder || state.pendingCheckin) return await handleTier1(text, parseIntent(text), fromVoice);
     const r = route(text, { hasSemantic: await embeddingsReady() });
     // Acciones concretas siempre locales: recordatorios, crear notas, repaso, red, resumen
@@ -795,7 +801,7 @@ function bind() {
   $('#brand').onclick = () => showView('inicio');
   $('#btn-voice').onclick = startVoice;
 
-  $('#connect-form').onsubmit = e => { e.preventDefault(); connectWithSecret($('#connect-secret').value.trim()); };
+  $('#connect-card').onsubmit = e => { e.preventDefault(); connectWithSecret($('#connect-secret').value.trim()); };
   $('#composer').onsubmit = e => { e.preventDefault(); const i = $('#composer-input'); const v = i.value; i.value = ''; handleInput(v); };
   document.addEventListener('click', e => {
     const open = e.target.closest('[data-open]');

@@ -24,3 +24,13 @@ npx ruflo@3.45.0 agent spawn -t coder  # lanza un agente
 npx ruflo@3.45.0 status                # estado del sistema
 npx ruflo@3.45.0 doctor                # diagnóstico
 ```
+
+### Google Antigravity
+
+`.agents/mcp_config.json` registra el mismo servidor Ruflo para Antigravity.
+
+1. Clona este repo y ábrelo como workspace en Antigravity.
+2. Ve a **Settings → Customizations → Manage MCP Servers** y pulsa **Refresh**. Debe aparecer `ruflo`.
+3. Si no aparece, copia el bloque `ruflo` de `.agents/mcp_config.json` a tu config global `~/.gemini/config/mcp_config.json`.
+
+Requiere Node.js 20 o superior en tu máquina.

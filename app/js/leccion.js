@@ -117,7 +117,7 @@ Devuelves SOLO un objeto JSON válido, sin texto antes ni después, sin comentar
  "preguntas": [{"q": "pregunta corta de repaso", "a": "respuesta corta"}],
  "siguiente": "qué conviene estudiar después, una frase"
 }
-Reglas para "grafica": si el tema es una curva o función, dibújala con la sintaxis de una calculadora: funciones usan x (ej. "x^2-3*x+1"), paramétricas usan t con dos expresiones separadas por ; (ej. "3*cos(t); 2*sin(t)"), implícitas son una ecuación en x e y (ej. "x^2/9+y^2/4=1"). Funciones permitidas: sin cos tan sqrt abs exp log pow. Si el tema no es gráfico, usa tipo "ninguna". Pon en "puntos" los elementos notables (focos, vértices, centro) del ejercicio.
+Reglas para "grafica": si el tema es una curva o función, dibújala con la sintaxis de una calculadora: funciones usan x (ej. "x^2-3*x+1"), paramétricas usan t con dos expresiones separadas por ; (ej. "3*cos(t); 2*sin(t)"), implícitas son una ecuación en x e y (ej. "x^2/9+y^2/4=1"). Funciones permitidas: sin cos tan sqrt abs exp log pow. Si el tema no es gráfico, usa tipo "ninguna". Pon en "puntos" los elementos notables (focos, vértices, centro) del ejercicio, con coordenadas como números decimales (2.65, no sqrt(7)).
 El ejercicio debe estar resuelto de verdad, con números concretos y entre 4 y 7 pasos. Entre 4 y 6 preguntas de repaso.`;
 
 // Convierte la respuesta del modelo en objeto aunque venga con texto alrededor
@@ -126,6 +126,9 @@ export function parseLesson(text) {
   const a = t.indexOf('{'), b = t.lastIndexOf('}');
   if (a < 0 || b < 0) throw new Error('La IA no devolvió la lección en formato válido');
   let raw = t.slice(a, b + 1);
+  // Los modelos a veces escriben expresiones en vez de números: Math.sqrt(7), 2*pi, -sqrt(5)/2…
+  raw = raw.replace(/(-?)(?:Math\.)?sqrt\((\d+(?:\.\d+)?)\)(?:\s*\/\s*(\d+(?:\.\d+)?))?/g, (_, sg, n, d) => String((sg ? -1 : 1) * Math.sqrt(+n) / (d ? +d : 1)));
+  raw = raw.replace(/(-?)(\d+(?:\.\d+)?)\s*\*\s*(?:Math\.)?(?:PI|pi|π)/g, (_, sg, n) => String((sg ? -1 : 1) * n * Math.PI)).replace(/([\[,:]\s*)(-?)(?:Math\.)?(?:PI|pi|π)(?=\s*[,\]}])/g, (_, pre, sg) => pre + String((sg ? -1 : 1) * Math.PI));
   try { return JSON.parse(raw); } catch (_) { /* segundo intento: barras de LaTeX sin escapar */ }
   raw = raw.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
   return JSON.parse(raw);

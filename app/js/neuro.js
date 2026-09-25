@@ -19,6 +19,9 @@ const SKILL_HINTS = [
 const WRITE = /(investiga|busca(me)? (informacion|info|datos|fuentes)|informate|informe|reporte|ensayo|articulo|monografia|resumen de|resumeme|resume|redacta|redactame|escribe(me)?|escribeme|carta|correo para|mensaje para|post|guion|analiza|compara|traduce|traduceme|corrige|corrigeme|mejora (este|mi|el) texto|resuelve|resuelveme|calcula|demuestra|planifica (mi|el) (mes|semestre|curso|semana))/;
 // Trabajo pesado de verdad (código, apps, repositorios) o pedido explícito de Claude: aquí sí se gastan créditos.
 const CREDITS = /(con claude|claude code|usa (tus |los )?creditos|con creditos|modo pesado)/;
+// Programar con otras IA vía OmniRoute (gratis): «con omniroute», «con otras ias», «con gemini/deepseek/gpt/kimi/qwen»
+const OTHER_AI = /(omniroute|omni route|otras ias|otra ia|otras inteligencias|con gemini|con deepseek|con gpt|con chatgpt|con kimi|con qwen|con glm|con mistral|con llama)/;
+const CODEY = /(codigo|programa|programame|funcion|script|python|javascript|typescript|node|react|html|css|sql|java\b|kotlin|swift|c\+\+|bug|error|depura|debug|refactor|app|api|bot|clase|componente|pagina|web)/;
 
 // Lección guiada: «voy a estudiar elipses», «hoy quiero estudiar parábola, dame fórmulas y ejemplos»,
 // «hazme una lección de derivadas», «enséñame la fotosíntesis paso a paso». No exige que la frase empiece así.
@@ -53,6 +56,8 @@ export function route(text, { hasSemantic = false } = {}) {
   const topic = intent.intent === 'reminder' ? null : lessonTopic(t);
   if (topic) return { tier: 2, intent: { intent: 'lesson' }, topic, reason: 'lección guiada con tu nube' };
 
+  // Programar con otras IA (OmniRoute): va antes que «proyecto» para no gastar créditos
+  if (OTHER_AI.test(t) && CODEY.test(t)) return { tier: 2, intent: { intent: 'code' }, reason: 'programar con otras IA vía OmniRoute' };
   // Habilidades explícitas → Nivel 3 con la habilidad adecuada
   for (const h of SKILL_HINTS) {
     if (h.re.test(t)) return { tier: 3, intent: { intent: 'skill' }, skill: h.skill, prompt: text, effort: parseEffort(t), reason: `pide la habilidad “${h.skill}”` };

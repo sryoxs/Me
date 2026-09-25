@@ -18,9 +18,9 @@ export async function cloudReady() {
 }
 
 // messages: [{role:'user'|'assistant', content}] → texto
-export async function chat({ system, messages, maxTokens = 350, tier } = {}) {
+export async function chat({ system, messages, maxTokens = 350, tier, purpose, gateway } = {}) {
   const { url, headers } = await endpoint('/ai/chat');
-  const res = await fetch(url, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ system, messages, max_tokens: maxTokens, tier }) });
+  const res = await fetch(url, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ system, messages, max_tokens: maxTokens, tier, purpose, gateway }) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
   return data;

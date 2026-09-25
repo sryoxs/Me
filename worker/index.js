@@ -34,7 +34,7 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     const url = new URL(request.url);
     if (url.pathname === '/health') return json({ ok: true });
-    if (!['/sync', '/engine/pending', '/engine/vault', '/ai/chat', '/ai/stt', '/ai/tts', '/ai/debug', '/tools/youtube', '/tools/search', '/tools/wiki'].includes(url.pathname)) return json({ error: 'No encontrado' }, 404);
+    if (!['/sync', '/engine/pending', '/engine/vault', '/ai/chat', '/ai/stt', '/ai/tts', '/ai/debug', '/tools/youtube', '/tools/search', '/tools/wiki', '/ai/gateway'].includes(url.pathname)) return json({ error: 'No encontrado' }, 404);
     if (!(await authorized(request, env))) return json({ error: 'Frase secreta incorrecta' }, 401);
 
     const now = Date.now();
@@ -53,6 +53,7 @@ export default {
       if (!env.AI) return json({ error: 'Workers AI no está activado en este Worker' }, 503);
       try {
         if (url.pathname === '/ai/chat') return await aiChat(request, env);
+        if (url.pathname === '/ai/gateway') return json({ connected: !!env.LLM_BASE_URL, model: env.LLM_MODEL || 'auto', codeModel: env.LLM_CODE_MODEL || env.LLM_MODEL || 'auto' });
         if (url.pathname === '/ai/stt') return await aiStt(request, env);
         if (url.pathname === '/ai/tts') return await aiTts(request, env);
         if (url.pathname === '/ai/debug') return await aiDebug(env);
@@ -125,19 +126,20 @@ const CHAT_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/zai-org/gl
 // Nivel «rápido»: charla corta, primero el modelo pequeño (más barato y veloz).
 const FAST_MODELS = ['@cf/meta/llama-3.1-8b-instruct-fast', '@cf/meta/llama-3.3-70b-instruct-fp8-fast'];
 
+const gwModel = (env, purpose) => (purpose === 'code' && env.LLM_CODE_MODEL) || env.LLM_MODEL || 'auto';
 // Pasarela opcional compatible con OpenAI (por ejemplo OmniRoute con modelos gratuitos).
 // Se activa solo si existen LLM_BASE_URL (y opcionalmente LLM_API_KEY, LLM_MODEL) como secretos del Worker.
-async function gatewayChat(env, messages, maxTokens) {
+async function gatewayChat(env, messages, maxTokens, purpose) {
   if (!env.LLM_BASE_URL) return null;
   const url = env.LLM_BASE_URL.replace(/\/$/, '') + '/chat/completions';
   const headers = { 'content-type': 'application/json' };
   if (env.LLM_API_KEY) headers.authorization = 'Bearer ' + env.LLM_API_KEY;
   const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 45000);
   try {
-    const res = await fetch(url, { method: 'POST', headers, signal: ctrl.signal, body: JSON.stringify({ model: env.LLM_MODEL || 'auto', messages, max_tokens: maxTokens, temperature: 0.6 }) });
+    const res = await fetch(url, { method: 'POST', headers, signal: ctrl.signal, body: JSON.stringify({ model: gwModel(env, purpose), messages, max_tokens: maxTokens, temperature: purpose === 'code' ? 0.2 : 0.6 }) });
     if (!res.ok) return null;
     const text = extractText(await res.json());
-    return text ? { text, model: 'pasarela/' + (env.LLM_MODEL || 'auto') } : null;
+    return text ? { text, model: 'omniroute/' + gwModel(env, purpose) } : null;
   } catch (_) { return null; } finally { clearTimeout(t); }
 }
 const STT_MODEL = '@cf/openai/whisper-large-v3-turbo';
@@ -154,7 +156,9 @@ async function aiChat(request, env) {
   if (!messages.some(m => m.role === 'user')) return json({ error: 'Falta el mensaje del usuario' }, 400);
   const maxTokens = Math.min(3000, body.max_tokens || 400);
   const fast = body.tier === 'rapido';
-  if (!fast) { const g = await gatewayChat(env, messages, maxTokens); if (g) return json(g); }
+  const purpose = body.purpose === 'code' ? 'code' : 'chat';
+  if (!fast) { const g = await gatewayChat(env, messages, maxTokens, purpose); if (g) return json(g); }
+  if (body.gateway === 'required') return json({ error: env.LLM_BASE_URL ? 'OmniRoute no respondió. ¿Está encendido en tu computadora y el túnel abierto?' : 'OmniRoute aún no está conectado a tu nube.' }, 503);
   let lastErr = null;
   for (const model of fast ? FAST_MODELS : CHAT_MODELS) {
     try {

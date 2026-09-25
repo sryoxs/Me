@@ -166,6 +166,7 @@ async function handleInput(text, { fromVoice = false } = {}) {
     if (r.intent.intent === 'status') { showTier(r); return await handleStatus(); }
     if (r.intent.intent === 'lesson') { showTier(r); return await handleLesson(r.topic); }
     if (r.intent.intent === 'write') { showTier(r); return await handleWrite(text); }
+    if (r.intent.intent === 'code') { showTier(r); return await handleWrite(text, { code: true }); }
     // Acciones concretas siempre locales: recordatorios, crear notas, repaso, red, resumen
     const action = r.tier === 1 && ['reminder', 'create', 'study', 'graph', 'brief'].includes(r.intent.intent);
     if (r.tier === 3) { showTier(r); return await handleTier3(r, text); }
@@ -246,12 +247,16 @@ Haces lo que te pide de verdad y completo: informes, investigaciones, cartas, co
 Formato markdown: un título con #, secciones con ##, listas cuando ayuden, fórmulas en LaTeX entre $...$ si hay matemáticas.
 Si te doy fuentes, úsalas y cítalas al final en una sección "## Fuentes" con sus enlaces. No inventes datos ni cifras: si falta un dato, dilo.
 Si es un texto para enviar (carta, correo, mensaje), escríbelo listo para copiar y recuerda que ${name} lo envía, tú no.`;
-async function handleWrite(text) {
+const CODE_SYSTEM = name => `Eres el programador de Brainer, trabajando para ${name}. Respondes en español, sin emojis.
+Escribes código completo y funcional, listo para copiar, en bloques con el lenguaje indicado (\`\`\`python, \`\`\`js…).
+Antes del código, una o dos frases de qué hace. Después, cómo ejecutarlo paso a paso y cómo probarlo.
+Si falta un dato importante, asume lo razonable y dilo en una línea. Nunca incluyas claves ni contraseñas reales.`;
+async function handleWrite(text, { code = false } = {}) {
   if (!(await cloudReady())) { await renderConnectCard(); addMsg('brainer', 'Para redactar o investigar necesito tu nube. Pega la frase secreta arriba y pulsa Conectar.'); return; }
-  const holder = addMsg('brainer', `<span class="working"><i></i> buscando fuentes y redactando…</span>`);
+  const holder = addMsg('brainer', `<span class="working"><i></i> ${code ? 'programando con OmniRoute…' : 'buscando fuentes y redactando…'}</span>`);
   try {
     hud('pensando', 'redactando en tu nube…');
-    const needsSources = /(investiga|informe|reporte|ensayo|articulo|monografia|informacion|datos|fuentes|compara|analiza|resumen de|historia|que es|quien)/i.test(normalize(text));
+    const needsSources = !code && /(investiga|informe|reporte|ensayo|articulo|monografia|informacion|datos|fuentes|compara|analiza|resumen de|historia|que es|quien)/i.test(normalize(text));
     const q = text.replace(/^(brainer[, ]*)?(por favor |porfa )?(hazme|haz|redactame|redacta|escribeme|escribe|investiga|investigame|dame|quiero|necesito)( un| una| el| la)?\s*(informe|reporte|ensayo|articulo|resumen|investigacion)?\s*(sobre|de|acerca de)?\s*/i, '').slice(0, 120);
     const [web, wiki] = needsSources ? await Promise.all([tools.search(q).catch(() => []), tools.wiki(q).catch(() => null)]) : [[], null];
     const fuentes = [];
@@ -260,15 +265,15 @@ async function handleWrite(text) {
     const prof = await kv.get('profile', {}); const name = prof.name || 'Smith';
     const facts = ((await kv.get('memory', {})).facts || []).slice(-15).map(f => '- ' + f.text).join('\n');
     const ctx = search(state.notes, text, { limit: 3 }).map(x => `«${x.note.title}»: ${stripTags(x.note.body).slice(0, 500)}`).join('\n');
-    const system = WRITE_SYSTEM(name) + (facts ? `\nLo que sabes de ${name}:\n${facts}` : '') + (ctx ? `\nNotas suyas relacionadas:\n${ctx}` : '') + (fuentes.length ? `\nFuentes encontradas ahora en la web (úsalas y cítalas):\n${fuentes.join('\n')}` : '');
-    const res = await cloudChat({ system, messages: [{ role: 'user', content: text }], maxTokens: 2200 });
+    const system = (code ? CODE_SYSTEM(name) : WRITE_SYSTEM(name)) + (facts ? `\nLo que sabes de ${name}:\n${facts}` : '') + (ctx ? `\nNotas suyas relacionadas:\n${ctx}` : '') + (fuentes.length ? `\nFuentes encontradas ahora en la web (úsalas y cítalas):\n${fuentes.join('\n')}` : '');
+    const res = await cloudChat({ system, messages: [{ role: 'user', content: text }], maxTokens: code ? 3000 : 2200, purpose: code ? 'code' : undefined, gateway: code ? 'required' : undefined });
     const body = res.text.replace(/^\s*\[memoria\].*$/gim, '').trim();
     const title = (body.match(/^#\s+(.+)$/m) || [])[1] || text.slice(0, 60);
     if (!markedPromise) markedPromise = import('https://cdn.jsdelivr.net/npm/marked@18/+esm').then(m => m.marked);
     let html; try { const marked = await markedPromise; await loadKatex().catch(() => null); html = texRender(marked.parse(body, { breaks: true })); } catch (_) { html = esc(body); }
-    const note = await notes.save({ title: title.slice(0, 90), type: 'informe', tagText: 'informe, brainer, redaccion', body });
+    const note = await notes.save({ title: title.slice(0, 90), type: code ? 'proyecto' : 'informe', tagText: code ? 'codigo, brainer, omniroute' : 'informe, brainer, redaccion', body });
     await loadNotes(); syncNow({ silent: true }).catch(() => {});
-    holder.innerHTML = `<div class="doc">${html}</div><div class="row small"><a href="#" class="btn ghost small" data-open="${note.id}">Abrir en la bóveda</a><button class="btn ghost small" data-copy-note="${note.id}">Copiar texto</button></div>` + tierNote({ tier: 2, reason: `redactado en tu nube · ${esc(res.model.split('/').pop())}${fuentes.length ? ' · ' + fuentes.length + ' fuentes' : ''}` });
+    holder.innerHTML = `<div class="doc">${html}</div><div class="row small"><a href="#" class="btn ghost small" data-open="${note.id}">Abrir en la bóveda</a><button class="btn ghost small" data-copy-note="${note.id}">Copiar texto</button></div>` + tierNote({ tier: 2, reason: `${code ? 'programado con' : 'redactado en tu nube ·'} ${esc(res.model)}${fuentes.length ? ' · ' + fuentes.length + ' fuentes' : ''}` });
     const first = stripTags(body).split(/(?<=[.!?])\s/).slice(0, 2).join(' ');
     if (state.settings.voiceReply && (state.lastInputWasVoice || state.userGestured)) state.speaking = speakHud(`Listo. ${title}. ${first.slice(0, 260)} Lo tienes completo en pantalla y guardado en tu bóveda.`).catch(() => {});
   } catch (err) { holder.innerHTML = `No pude terminarlo: ${esc(err.message)}. Inténtalo otra vez.`; hud('error'); setTimeout(() => hud('inactivo'), 1200); }

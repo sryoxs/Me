@@ -4,7 +4,7 @@
 #   toma-vertical.mp4    1080x1920 (TikTok/Reels), con un recorte 9:16 por plano
 # Uso: ./armar_tomas.sh <cuadros_4k> <cuadros_fuente_corregidos> <video_gemini_original>
 # Mezcla 60 % Real-ESRGAN + 40 % Lanczos y un grano fino para que no se vea "plastificado".
-# El audio original se conserva completo y a su volumen original.
+# El audio original se conserva completo; solo se normaliza su volumen (Gemini lo entrega muy bajo).
 set -euo pipefail
 UP="$1"; SRC="$2"; ORIG="$3"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -15,7 +15,7 @@ ENC=(-c:v libx264 -crf 17 -preset slow -c:a aac -b:a 192k -movflags +faststart)
 # Horizontal: el cuadro completo
 "$FF" -loglevel error -y -framerate 24 -i "$UP/f%04d.png" -framerate 24 -i "$SRC/f%04d.png" -i "$ORIG" \
   -filter_complex "[0]scale=1920:1080:flags=lanczos[u];[1]scale=1920:1080:flags=lanczos[l];[u][l]$LOOK[v]" \
-  -map "[v]" -map 2:a "${ENC[@]}" -shortest "$DIR/toma-horizontal.mp4"
+  -map "[v]" -map 2:a -af "loudnorm=I=-16:TP=-1.5:LRA=11" -ar 48000 "${ENC[@]}" -shortest "$DIR/toma-horizontal.mp4"
 
 # Vertical: plano -> (inicio, fin, x del recorte en la fuente de 1280x720, ancho 406)
 PLANOS=("0 2.0 367" "2.0 5.4583 427" "5.4583 7.0833 347" "7.0833 10.01 347")
@@ -28,7 +28,7 @@ for p in "${PLANOS[@]}"; do
 done
 fc+="${cat_u}concat=n=$n:v=1:a=0[u];${cat_l}concat=n=$n:v=1:a=0[l];[u][l]$LOOK[v]"
 "$FF" -loglevel error -y -framerate 24 -i "$UP/f%04d.png" -framerate 24 -i "$SRC/f%04d.png" -i "$ORIG" \
-  -filter_complex "$fc" -map "[v]" -map 2:a "${ENC[@]}" -shortest "$DIR/toma-vertical.mp4"
+  -filter_complex "$fc" -map "[v]" -map 2:a -af "loudnorm=I=-16:TP=-1.5:LRA=11" -ar 48000 "${ENC[@]}" -shortest "$DIR/toma-vertical.mp4"
 
 for f in toma-horizontal toma-vertical; do
   { "$FF" -i "$DIR/$f.mp4" 2>&1 || true; } | grep -E "Duration|Video:" | sed "s/^/$f: /"

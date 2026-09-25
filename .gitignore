@@ -10,3 +10,9 @@
 .swarm/
 ruvector.db
 ruvector.db-*
+
+# Ruflo per-machine runtime state
+.claude-flow/policy/
+.claude-flow/harness-active-policy.json
+.claude/proven-config.json
+.claude/.proven-config-version

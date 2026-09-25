@@ -18,17 +18,18 @@ export async function cloudReady() {
 }
 
 // messages: [{role:'user'|'assistant', content}] → texto
-export async function chat({ system, messages, maxTokens = 350 }) {
+export async function chat({ system, messages, maxTokens = 350, tier } = {}) {
   const { url, headers } = await endpoint('/ai/chat');
-  const res = await fetch(url, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ system, messages, max_tokens: maxTokens }) });
+  const res = await fetch(url, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify({ system, messages, max_tokens: maxTokens, tier }) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
   return data;
 }
 
 // blob de audio (webm/mp4/wav) → texto
-export async function transcribe(blob) {
-  const { url, headers } = await endpoint('/ai/stt');
+export async function transcribe(blob, { hint = '' } = {}) {
+  const { url: base, headers } = await endpoint('/ai/stt');
+  const url = hint ? base + '?prompt=' + encodeURIComponent(hint.slice(0, 400)) : base;
   const res = await fetch(url, { method: 'POST', headers: { ...headers, 'content-type': blob.type || 'application/octet-stream' }, body: blob });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Error ${res.status}`);

@@ -112,13 +112,15 @@ Devuelves SOLO un objeto JSON válido, sin texto antes ni después, sin comentar
  "resumen": "2 o 3 frases que expliquen la idea central",
  "ideas": ["3 a 5 ideas clave, una frase cada una; fórmulas en LaTeX entre $...$"],
  "formulas": [{"nombre": "string", "latex": "string LaTeX sin $"}],
+ "metodo": ["cómo se resuelve un problema típico de este tema, en 3 a 6 pasos generales, una frase cada uno"],
+ "ejemplos": [{"enunciado": "ejemplo corto distinto al ejercicio", "solucion": "solución en 2 o 3 frases con los cálculos clave en LaTeX entre $...$"}],
  "ejercicio": {"enunciado": "string", "pasos": [{"texto": "qué se hace y por qué", "latex": "la operación de ese paso en LaTeX sin $, o cadena vacía"}], "resultado": "string"},
  "grafica": {"tipo": "funcion|parametrica|implicita|ninguna", "titulo": "string", "expresiones": ["..."], "xmin": -6, "xmax": 6, "ymin": -4, "ymax": 4, "tmin": 0, "tmax": 6.283, "puntos": [[x, y, "etiqueta"]]},
  "preguntas": [{"q": "pregunta corta de repaso", "a": "respuesta corta"}],
  "siguiente": "qué conviene estudiar después, una frase"
 }
 Reglas para "grafica": si el tema es una curva o función, dibújala con la sintaxis de una calculadora: funciones usan x (ej. "x^2-3*x+1"), paramétricas usan t con dos expresiones separadas por ; (ej. "3*cos(t); 2*sin(t)"), implícitas son una ecuación en x e y (ej. "x^2/9+y^2/4=1"). Funciones permitidas: sin cos tan sqrt abs exp log pow. Si el tema no es gráfico, usa tipo "ninguna". Pon en "puntos" los elementos notables (focos, vértices, centro) del ejercicio, con coordenadas como números decimales (2.65, no sqrt(7)).
-El ejercicio debe estar resuelto de verdad, con números concretos y entre 4 y 7 pasos. Entre 4 y 6 preguntas de repaso.`;
+El ejercicio debe estar resuelto de verdad, con números concretos y entre 4 y 7 pasos. Dos ejemplos resueltos. Entre 4 y 6 preguntas de repaso. Si el tema no es matemático (historia, biología, idiomas…), "formulas" puede ir vacío, "metodo" son los pasos para estudiarlo o aplicarlo, y el "ejercicio" es una pregunta de análisis resuelta paso a paso.`;
 
 // Convierte la respuesta del modelo en objeto aunque venga con texto alrededor
 export function parseLesson(text) {
@@ -155,6 +157,8 @@ export function renderLesson(L) {
   const videos = L.videos && L.videos.length ? `<div class="lsec"><div class="ph">VIDEOS</div><div class="videos">${L.videos.map(v => `<a class="video" href="${esc(v.url)}" target="_blank" rel="noopener" data-yt="${esc(v.id)}"><img src="${esc(v.thumb)}" alt="" loading="lazy"><span class="play"></span><b>${esc(v.title)}</b><small>${esc(v.channel)}${v.length ? ' · ' + esc(v.length) : ''}</small></a>`).join('')}</div></div>` : '';
   const ideas = (L.ideas || []).length ? `<div class="lsec"><div class="ph">IDEAS CLAVE</div><ol class="ideas">${L.ideas.map(i => `<li>${texInline(i)}</li>`).join('')}</ol></div>` : '';
   const formulas = (L.formulas || []).length ? `<div class="lsec"><div class="ph">FÓRMULAS</div><div class="formulas">${L.formulas.map(f => `<div class="formula"><small>${esc(f.nombre)}</small>${tex(f.latex, true)}</div>`).join('')}</div></div>` : '';
+  const metodo = (L.metodo || []).length ? `<div class="lsec"><div class="ph">CÓMO SE RESUELVE</div><ol class="metodo">${L.metodo.map(m => `<li>${texInline(m)}</li>`).join('')}</ol></div>` : '';
+  const ejemplos = (L.ejemplos || []).length ? `<div class="lsec"><div class="ph">EJEMPLOS RESUELTOS</div><div class="ejemplos">${L.ejemplos.map((e, i) => `<div class="ejemplo"><small>Ejemplo ${i + 1}</small><p class="enunciado">${texInline(e.enunciado)}</p><p>${texInline(e.solucion)}</p></div>`).join('')}</div></div>` : '';
   const ej = L.ejercicio && L.ejercicio.enunciado ? `<div class="lsec"><div class="ph">EJERCICIO RESUELTO</div><p class="enunciado">${texInline(L.ejercicio.enunciado)}</p><ol class="pasos">${(L.ejercicio.pasos || []).map((p, i) => `<li><span class="n">${i + 1}</span><div><p>${texInline(p.texto)}</p>${p.latex ? tex(p.latex, true) : ''}</div></li>`).join('')}</ol>${L.ejercicio.resultado ? `<p class="resultado"><b>Resultado:</b> ${texInline(L.ejercicio.resultado)}</p>` : ''}</div>` : '';
   const hasGraph = L.grafica && L.grafica.tipo && L.grafica.tipo !== 'ninguna' && (L.grafica.expresiones || []).length;
   const graph = hasGraph ? `<div class="lsec"><div class="ph">GRÁFICA</div><canvas class="graph" id="${id}" data-graph='${esc(JSON.stringify(L.grafica))}'></canvas></div>` : '';
@@ -163,7 +167,7 @@ export function renderLesson(L) {
   for (const f of L.fuentes || []) fuentes.push(`<li><a href="${esc(f.url)}" target="_blank" rel="noopener"><b>${esc(f.title)}</b></a><span>${esc((f.snippet || '').slice(0, 160))}</span><small>${esc(host(f.url))}</small></li>`);
   const src = fuentes.length ? `<div class="lsec"><div class="ph">FUENTES</div><ul class="fuentes">${fuentes.join('')}</ul></div>` : '';
   const preguntas = (L.preguntas || []).length ? `<div class="lsec"><div class="ph">REPASO</div><p class="muted small">Guardadas como tarjetas: te las preguntaré cuando toque.</p><div class="preguntas">${L.preguntas.map(p => `<details><summary>${texInline(p.q)}</summary><p>${texInline(p.a)}</p></details>`).join('')}</div></div>` : '';
-  return `<article class="lesson"><header><span class="readout">LECCIÓN · ${esc(L.tema)}</span><h3>${esc(L.titulo || L.tema)}</h3><p>${texInline(L.resumen || '')}</p></header>${videos}${ideas}${formulas}${ej}${graph}${src}${preguntas}${L.siguiente ? `<footer class="muted small">Después: ${esc(L.siguiente)}</footer>` : ''}</article>`;
+  return `<article class="lesson"><header><span class="readout">LECCIÓN · ${esc(L.tema)}</span><h3>${esc(L.titulo || L.tema)}</h3><p>${texInline(L.resumen || '')}</p></header>${videos}${ideas}${formulas}${metodo}${ejemplos}${ej}${graph}${src}${preguntas}${L.siguiente ? `<footer class="muted small">Después: ${esc(L.siguiente)}</footer>` : ''}</article>`;
 }
 const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (_) { return ''; } };
 
@@ -182,7 +186,7 @@ export function mountLesson(root) {
 const plain = t => String(t || '').replace(/\$\$?([^$]*)\$\$?/g, (_, m) => m.replace(/\\(frac|sqrt|cdot|pm|le|ge|neq|approx|left|right|times)\b/g, ' $1 ').replace(/[\\{}^_]/g, ' ')).replace(/\s+/g, ' ').trim();
 export function lessonSpeech(L) {
   const n = (L.videos || []).length;
-  return `${L.titulo || L.tema}. ${plain(L.resumen)} Te dejé ${n ? n + ' videos, ' : ''}las fórmulas, un ejercicio resuelto paso a paso${L.grafica && L.grafica.tipo !== 'ninguna' ? ', la gráfica' : ''} y las fuentes. Dime cuando quieras que te pregunte.`;
+  return `${L.titulo || L.tema}. ${plain(L.resumen)} Te dejé ${n ? n + ' videos, ' : ''}las fórmulas, el método, ejemplos y un ejercicio resuelto paso a paso${L.grafica && L.grafica.tipo !== 'ninguna' ? ', la gráfica' : ''} y las fuentes. Dime cuando quieras que te pregunte.`;
 }
 
 // Cuerpo markdown para guardar la lección como nota en la bóveda
@@ -190,6 +194,8 @@ export function lessonMarkdown(L) {
   const lines = [`# ${L.titulo || L.tema}`, '', L.resumen || '', ''];
   if ((L.ideas || []).length) { lines.push('## Ideas clave'); for (const i of L.ideas) lines.push('- ' + i); lines.push(''); }
   if ((L.formulas || []).length) { lines.push('## Fórmulas'); for (const f of L.formulas) lines.push(`- ${f.nombre}: $${f.latex}$`); lines.push(''); }
+  if ((L.metodo || []).length) { lines.push('## Cómo se resuelve'); L.metodo.forEach((m, i) => lines.push(`${i + 1}. ${m}`)); lines.push(''); }
+  if ((L.ejemplos || []).length) { lines.push('## Ejemplos resueltos'); for (const e of L.ejemplos) lines.push(`- **${e.enunciado}** ${e.solucion}`); lines.push(''); }
   if (L.ejercicio && L.ejercicio.enunciado) { lines.push('## Ejercicio resuelto', L.ejercicio.enunciado, ''); (L.ejercicio.pasos || []).forEach((p, i) => lines.push(`${i + 1}. ${p.texto}${p.latex ? ` $${p.latex}$` : ''}`)); if (L.ejercicio.resultado) lines.push('', `**Resultado:** ${L.ejercicio.resultado}`); lines.push(''); }
   if ((L.videos || []).length) { lines.push('## Videos'); for (const v of L.videos) lines.push(`- [${v.title}](${v.url}) · ${v.channel}`); lines.push(''); }
   const src = []; if (L.wiki) src.push(`- [Wikipedia: ${L.wiki.title}](${L.wiki.url})`); for (const f of L.fuentes || []) src.push(`- [${f.title}](${f.url})`);

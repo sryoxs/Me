@@ -6,7 +6,7 @@
 import { parseIntent, normalize } from './search.js';
 
 const SKILL_HINTS = [
-  { skill: 'proyecto', re: /(armame|arma|construye|construyeme|creame|hazme|desarrolla|programa|programame|montame|monta|arranca el proyecto|sigue con el proyecto)\s+(una|un|la|el|mi)?\s*(app|aplicacion|web|pagina|sitio|bot|script|herramienta|juego|api|proyecto|sistema|dashboard|landing|tienda)?/ },
+  { skill: 'proyecto', re: /(arranca el proyecto|sigue con el proyecto|(armame|arma|construye|construyeme|creame|crea|hazme|haz|desarrolla|desarrollame|programa|programame|montame|monta|codea|codeame)\s+(una |un |la |el |mi )?(app|aplicacion|web|pagina web|sitio|bot|script|herramienta|juego|api|proyecto|sistema|dashboard|landing|tienda|programa|codigo|extension|plugin))/ },
   { skill: 'procesar-inbox', re: /(procesa|afila|limpia|vacia)\s+(mi\s+|el\s+|las\s+)?(inbox|bandeja|capturas)/ },
   { skill: 'conexiones-semana', re: /(sesion de conexiones|conexiones (de la semana|de hoy|del dia)|que se conecto|encuentra (las )?conexiones)/ },
   { skill: 'examinar', re: /(examiname|examen de|preguntame sobre|califica mis|resume el tema|que me falta para)/ },
@@ -15,10 +15,23 @@ const SKILL_HINTS = [
   { skill: 'parte-del-dia', re: /(mi parte|parte del dia|planifica (el|mi) dia|preparame la manana|resumen del correo|correo|gmail|agenda de hoy)/ },
 ];
 
-const HEAVY = /(investiga|a fondo|profund|completo|detallado|redacta|escribe (un|una) (ensayo|informe|articulo)|analiza|compara|planifica (mi|el) (mes|semestre|curso)|traduce|corrige|explica(me)? (bien|paso a paso)|resuelve|demuestra|calcula)/;
+// Escritura e investigación: las resuelve Brainer con su IA gratuita y fuentes de la web (sin créditos).
+const WRITE = /(investiga|busca(me)? (informacion|info|datos|fuentes)|informate|informe|reporte|ensayo|articulo|monografia|resumen de|resumeme|resume|redacta|redactame|escribe(me)?|escribeme|carta|correo para|mensaje para|post|guion|analiza|compara|traduce|traduceme|corrige|corrigeme|mejora (este|mi|el) texto|resuelve|resuelveme|calcula|demuestra|planifica (mi|el) (mes|semestre|curso|semana))/;
+// Trabajo pesado de verdad (código, apps, repositorios) o pedido explícito de Claude: aquí sí se gastan créditos.
+const CREDITS = /(con claude|claude code|usa (tus |los )?creditos|con creditos|modo pesado)/;
 
-// Lección guiada: «voy a estudiar elipses», «enséñame derivadas», «clase de fotosíntesis»
-const LESSON = /^(?:brainer[, ]*)?(?:hoy\s+)?(?:voy a estudiar|quiero estudiar|vamos a estudiar|estudiemos|estudiar|ensename|enseñame|explica(?:me)? bien|dame una (?:clase|leccion) (?:de|sobre)|(?:una )?(?:clase|leccion) (?:de|sobre)|quiero aprender|aprender|explicame|repasemos|repasar)\s+(?:el tema de |la |el |los |las |sobre |de )?(.{3,80}?)(?:\s+(?:paso a paso|bien|a fondo|desde cero|con ejemplos|con ejercicios))*[.!?]*$/;
+// Lección guiada: «voy a estudiar elipses», «hoy quiero estudiar parábola, dame fórmulas y ejemplos»,
+// «hazme una lección de derivadas», «enséñame la fotosíntesis paso a paso». No exige que la frase empiece así.
+const LESSON_KEY = /(?:voy a estudiar|quiero estudiar|vamos a estudiar|toca estudiar|tengo que estudiar|debo estudiar|estudiemos|estudiar|estudiando|quiero aprender|aprender|ensename|enseñame|explicame|repasemos|repasar|(?:dame|hazme|quiero|necesito|armame|arma|prepara(?:me)?|genera(?:me)?|crea(?:me)?)\s+(?:una\s+|la\s+|un\s+|el\s+)?(?:leccion|clase|lecion|tutorial|guia|resumen de estudio)|(?:^|\s)(?:leccion|clase|tutorial)\s+(?:de|sobre|del|acerca de)|tema de hoy(?: es)?)\s+(.+)$/;
+const LESSON_STOP = /\s*(?:[,;:.!?]|\b(?:y\s+(?:dame|muestrame|quiero|necesito|explicame|que|con)|dame|muestrame|quiero que|necesito que|con (?:formulas|ejemplos|graficas|ejercicios)|paso a paso|bien|a fondo|desde cero|por favor|porfa|xfa|brainer|ayudame|ayuda|please)\b).*$/;
+const LEAD = /^(?:bien |por favor |porfa |brainer |el tema de |la |el |los |las |sobre |de |del |acerca de |un poco de |algo de |a )+/;
+export function lessonTopic(t) {
+  const m = LESSON_KEY.exec(t); if (!m) return null;
+  let topic = m[1].replace(LEAD, '').replace(LESSON_STOP, '').replace(LEAD, '').trim();
+  topic = topic.replace(/\s+(?:hoy|ahora|mañana|manana)$/, '').trim();
+  if (topic.length < 3 || topic.length > 70 || /^(?:que|como|cuando|donde|hoy|ahora|algo|esto|eso)$/.test(topic)) return null;
+  return topic;
+}
 // ¿Está listo mi trabajo? → estado de las peticiones y lectura del último informe
 const STATUS = /(esta listo|ya esta (listo|hecho|mi|el)|ya termin|termino|terminaron|como va|como van|hay novedades|que hay de nuevo|llego (el|mi|algun) informe|mi trabajo|mis peticiones|que hicieron|que hizo|resultado de|novedades)/;
 // Nivel de esfuerzo para el trabajo en la nube: bajo (rápido y barato), medio, alto (a fondo, con más modelo)
@@ -36,9 +49,9 @@ export function route(text, { hasSemantic = false } = {}) {
 
   // Estado del trabajo en la nube
   if (STATUS.test(t) && t.split(' ').length <= 12 && !/recuerdame|crea/.test(t)) return { tier: 1, intent: { intent: 'status' }, reason: 'estado de tus peticiones' };
-  // Lección guiada (videos, fórmulas, ejercicio, gráfica, fuentes)
-  const lm = LESSON.exec(t);
-  if (lm) return { tier: 2, intent: { intent: 'lesson' }, topic: lm[1].trim(), reason: 'lección guiada con tu nube' };
+  // Lección guiada (videos, fórmulas, ejercicio, gráfica, fuentes); un recordatorio con «estudiar» sigue siendo recordatorio
+  const topic = intent.intent === 'reminder' ? null : lessonTopic(t);
+  if (topic) return { tier: 2, intent: { intent: 'lesson' }, topic, reason: 'lección guiada con tu nube' };
 
   // Habilidades explícitas → Nivel 3 con la habilidad adecuada
   for (const h of SKILL_HINTS) {
@@ -48,10 +61,10 @@ export function route(text, { hasSemantic = false } = {}) {
   if (['reminder', 'create', 'study', 'graph', 'brief'].includes(intent.intent)) {
     return { tier: 1, intent, reason: 'regla local: ' + ({ reminder: 'recordatorio', create: 'crear nota', study: 'repaso', graph: 'grafo', brief: 'resumen del día' })[intent.intent] };
   }
-  // Trabajo pesado → Nivel 3 (investigación genérica)
-  if (HEAVY.test(t) && t.split(' ').length >= 3) {
-    return { tier: 3, intent: { intent: 'skill' }, skill: 'examinar', prompt: 'resume el tema: ' + text, effort: parseEffort(t), reason: 'trabajo exigente: lo hace Claude Code' };
-  }
+  // Pedido explícito de créditos → Claude Code
+  if (CREDITS.test(t)) return { tier: 3, intent: { intent: 'skill' }, skill: 'examinar', prompt: text, effort: 'alto', reason: 'pediste Claude Code' };
+  // Redactar, investigar, informes, resolver → Brainer lo hace en tu nube, gratis
+  if (WRITE.test(t) && t.split(' ').length >= 3) return { tier: 2, intent: { intent: 'write' }, reason: 'redacción e investigación en tu nube' };
   // Búsqueda: Nivel 2 si hay red neuronal semántica lista, si no Nivel 1 por palabras
   if (intent.intent === 'search') {
     const question = /^(que|como|por que|cuando|donde|quien|cual|explica|resume|resumen)/.test(t) || t.endsWith('?');

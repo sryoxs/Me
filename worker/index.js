@@ -109,9 +109,11 @@ async function changesSince(env, since) {
 function extractText(r) {
   if (!r) return '';
   if (typeof r === 'string') return r.trim();
-  if (r.response) return String(r.response).trim();
+  // Si el modelo respondió JSON, Workers AI ya lo entrega como objeto: lo devolvemos como texto JSON
+  const asText = v => typeof v === 'string' ? v.trim() : JSON.stringify(v);
+  if (r.response) return asText(r.response);
   const c = r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content;
-  if (c) return String(c).trim();
+  if (c) return asText(c);
   if (r.result) return extractText(r.result);
   return '';
 }
@@ -120,6 +122,24 @@ function safeParse(s) { try { return JSON.parse(s); } catch (_) { return {}; } }
 
 // ---------- Workers AI ----------
 const CHAT_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/zai-org/glm-4.7-flash', '@cf/meta/llama-3.1-8b-instruct-fast'];
+// Nivel «rápido»: charla corta, primero el modelo pequeño (más barato y veloz).
+const FAST_MODELS = ['@cf/meta/llama-3.1-8b-instruct-fast', '@cf/meta/llama-3.3-70b-instruct-fp8-fast'];
+
+// Pasarela opcional compatible con OpenAI (por ejemplo OmniRoute con modelos gratuitos).
+// Se activa solo si existen LLM_BASE_URL (y opcionalmente LLM_API_KEY, LLM_MODEL) como secretos del Worker.
+async function gatewayChat(env, messages, maxTokens) {
+  if (!env.LLM_BASE_URL) return null;
+  const url = env.LLM_BASE_URL.replace(/\/$/, '') + '/chat/completions';
+  const headers = { 'content-type': 'application/json' };
+  if (env.LLM_API_KEY) headers.authorization = 'Bearer ' + env.LLM_API_KEY;
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 45000);
+  try {
+    const res = await fetch(url, { method: 'POST', headers, signal: ctrl.signal, body: JSON.stringify({ model: env.LLM_MODEL || 'auto', messages, max_tokens: maxTokens, temperature: 0.6 }) });
+    if (!res.ok) return null;
+    const text = extractText(await res.json());
+    return text ? { text, model: 'pasarela/' + (env.LLM_MODEL || 'auto') } : null;
+  } catch (_) { return null; } finally { clearTimeout(t); }
+}
 const STT_MODEL = '@cf/openai/whisper-large-v3-turbo';
 const TTS_MODELS = ['@cf/deepgram/aura-2-es', '@cf/myshell-ai/melotts'];
 
@@ -132,10 +152,13 @@ async function aiChat(request, env) {
     if (m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string') messages.push({ role: m.role, content: m.content.slice(0, 4000) });
   }
   if (!messages.some(m => m.role === 'user')) return json({ error: 'Falta el mensaje del usuario' }, 400);
+  const maxTokens = Math.min(3000, body.max_tokens || 400);
+  const fast = body.tier === 'rapido';
+  if (!fast) { const g = await gatewayChat(env, messages, maxTokens); if (g) return json(g); }
   let lastErr = null;
-  for (const model of CHAT_MODELS) {
+  for (const model of fast ? FAST_MODELS : CHAT_MODELS) {
     try {
-      const r = await env.AI.run(model, { messages, max_tokens: Math.min(1024, body.max_tokens || 400), temperature: 0.6 });
+      const r = await env.AI.run(model, { messages, max_tokens: maxTokens, temperature: 0.6 });
       const text = extractText(r);
       if (text) return json({ text, model });
     } catch (err) { lastErr = err; }
@@ -148,7 +171,12 @@ async function aiStt(request, env) {
   const buf = new Uint8Array(await request.arrayBuffer());
   if (!buf.length) return json({ error: 'Audio vacío' }, 400);
   if (buf.length > 8 * 1024 * 1024) return json({ error: 'Audio demasiado largo' }, 413);
-  const r = await env.AI.run(STT_MODEL, { audio: toBase64(buf), language: 'es', task: 'transcribe' });
+  // Pista de vocabulario (nombres, temas que estudia) para que Whisper entienda mejor a Smith
+  const hint = (new URL(request.url).searchParams.get('prompt') || '').slice(0, 400);
+  const input = { audio: toBase64(buf), language: 'es', task: 'transcribe', vad_filter: true };
+  if (hint) input.initial_prompt = hint;
+  let r;
+  try { r = await env.AI.run(STT_MODEL, input); } catch (_) { r = await env.AI.run(STT_MODEL, { audio: toBase64(buf), language: 'es', task: 'transcribe' }); }
   return json({ text: String((r && r.text) || '').trim(), model: STT_MODEL });
 }
 

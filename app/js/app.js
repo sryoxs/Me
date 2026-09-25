@@ -1,7 +1,7 @@
 // Brainer: lógica principal de la interfaz.
 import { notes, reminders, cards, files, requests, kv, getSettings, saveSettings, exportAll, importAll, wipeAll, uid } from './store.js';
 import { route, TIER_LABEL, EFFORT_LABEL } from './neuro.js';
-import { buildLesson, renderLesson, mountLesson, lessonSpeech, lessonMarkdown, loadKatex } from './leccion.js';
+import { buildLesson, renderLesson, mountLesson, lessonSpeech, lessonMarkdown, loadKatex, tex } from './leccion.js';
 import { loadDemo, removeDemo } from './demo.js';
 const STATE_LABEL = { inactivo: 'Listo', escuchando: 'Escuchando', pensando: 'Procesando', hablando: 'Hablando', error: 'Error' };
 import { loadWhisper, recordUntilSilence, transcribe, embed, indexNotes, semanticSearch, extractiveSummary, onProgress, embeddingsReady, whisperReady } from './local-ai.js';
@@ -9,7 +9,7 @@ import { search, parseIntent, normalize } from './search.js';
 import { Brain3D } from './brain3d.js';
 import { listen, voiceSupported } from './voice.js';
 import { converse, welcomeLine, idleThought, listVoices, speak as personaSpeak, tone } from './persona.js';
-import { chat as cloudChat, transcribe as cloudTranscribe, speakCloud, stopSpeaking, isSpeaking, recordClip, startRecording, bargeInWatcher, cloudReady, inAppBrowser } from './cloud-ai.js';
+import { tools, chat as cloudChat, transcribe as cloudTranscribe, speakCloud, stopSpeaking, isSpeaking, recordClip, startRecording, bargeInWatcher, cloudReady, inAppBrowser } from './cloud-ai.js';
 import { ask, parseCards, usageToday } from './ai.js';
 import { cardsFromNote, schedule, dueCards, stats as studyStats } from './study.js';
 import { requestNotifPermission, startTicker, suggestFromNotes, dailyBrief } from './reminders.js';
@@ -106,8 +106,8 @@ async function brainSystemPrompt(context) {
     p.voice ? `Cómo le gusta que suenes: ${p.voice}` : '', p.rules ? `Límites que nunca se tocan: ${p.rules}` : '',
     b ? `Estado de hoy: ${b}` : '',
     `Brainer también ayuda con proyectos, código, ideas de negocio y trabajo diario, no solo estudio. Tiene un equipo de agentes (Arquitecto, Programador, Tester, Marketing, Investigador, Archivista, Tejedor, Escriba) que trabajan con Claude Code cuando la tarea es grande.`,
-    `Si ${name} pide algo que requiere trabajo real (investigar a fondo, construir una app, escribir un informe largo), dile que se lo pasas a Claude Code y que el resultado llegará a su bóveda; no lo hagas tú. Puede pedir el esfuerzo: bajo (rápido y sin gastar), medio o alto (a fondo).`,
-    `Si ${name} quiere estudiar un tema, sugiérele decir "voy a estudiar <tema>": Brainer arma una lección con videos, fórmulas, un ejercicio resuelto paso a paso, gráfica y fuentes.`,
+    `Si ${name} pide algo que requiere trabajo real (investigar a fondo, construir una app, escribir un informe largo), dile que se lo pasas a Claude Code y que el resultado llegará a su bóveda. Eso aplica solo a programar, apps y código: redactar, investigar, informes, resúmenes y ejercicios los hace Brainer al momento. Puede pedir el esfuerzo: bajo (rápido y sin gastar), medio o alto (a fondo).`,
+    `Si ${name} quiere estudiar, aprender, repasar o que le expliques un tema (con fórmulas, ejemplos, gráficas o paso a paso), NO lo expliques tú: responde solo con una línea que empiece exactamente con [leccion] seguida del tema en pocas palabras (ejemplo: "[leccion] parábola"). Brainer armará la lección completa con videos, fórmulas, método, ejemplos resueltos, gráfica y fuentes.`,
     facts && facts.length ? `Lo que ya sabes de ${name} por conversaciones anteriores:\n${facts.map(f => '- ' + f.text).join('\n')}` : '',
     context ? `Notas de la bóveda de ${name} relevantes ahora (cítalas por título si las usas; no inventes notas):\n${context}` : `No hay notas relevantes para esto en la bóveda.`,
     `Al final de tu respuesta, si ${name} reveló algo nuevo y estable sobre sí mismo (qué estudia, un proyecto, un gusto, cómo pide las cosas, una corrección a ti), añade una última línea que empiece exactamente con [memoria] y una frase corta en tercera persona. Si no hay nada nuevo, no añadas esa línea.`,
@@ -124,7 +124,11 @@ async function cloudConverse(text, r) {
   if (used.length) state.brain.activate(used.map((n, i) => ({ id: n.id, score: 1 - i * 0.2 })));
   state.history = (state.history || []).slice(-10);
   const system = await brainSystemPrompt(context);
-  const res = await cloudChat({ system, messages: [...state.history, { role: 'user', content: text }] });
+  const short = text.split(/\s+/).length <= 8 && !/\?|explica|por que|como funciona/i.test(text);
+  const res = await cloudChat({ system, messages: [...state.history, { role: 'user', content: text }], tier: short ? 'rapido' : undefined });
+  // La IA detectó que quieres estudiar algo: la lección la arma Brainer
+  const lm = /^\s*\[leccion\]\s*(.+?)\s*$/im.exec(res.text || '');
+  if (lm && lm[1].length < 80) { state.history.push({ role: 'user', content: text }, { role: 'assistant', content: `Te armo la lección de ${lm[1]}.` }); return handleLesson(lm[1].trim()); }
   // Aprendizaje: la línea [memoria] se guarda y se quita de lo que se muestra
   const learned = [];
   res.text = res.text.split('\n').filter(l => { const m = l.match(/^\s*\[memoria\]\s*(.+)$/i); if (m) { learned.push(m[1].trim()); return false; } return true; }).join('\n').trim();
@@ -161,6 +165,7 @@ async function handleInput(text, { fromVoice = false } = {}) {
     const r = route(text, { hasSemantic: await embeddingsReady() });
     if (r.intent.intent === 'status') { showTier(r); return await handleStatus(); }
     if (r.intent.intent === 'lesson') { showTier(r); return await handleLesson(r.topic); }
+    if (r.intent.intent === 'write') { showTier(r); return await handleWrite(text); }
     // Acciones concretas siempre locales: recordatorios, crear notas, repaso, red, resumen
     const action = r.tier === 1 && ['reminder', 'create', 'study', 'graph', 'brief'].includes(r.intent.intent);
     if (r.tier === 3) { showTier(r); return await handleTier3(r, text); }
@@ -234,6 +239,42 @@ async function announceReports() {
   if (state.view === 'inicio') addMsg('brainer', `<div class="report-inline"><span class="readout">INFORME NUEVO · ${fmtDate(n.updated)}</span><h3>${esc(n.title)}</h3><p>${esc(body)}${n.body.length > 500 ? '…' : ''}</p><a href="#" class="btn ghost small" data-open="${n.id}">Abrir completo</a></div>`, { speakText: `Tu trabajo está listo: ${n.title}. ${body.slice(0, 300)}`, always: true });
   seen[n.id] = Date.now(); await kv.set('reportsSeen', seen);
 }
+
+// Redacción e investigación con la IA de tu nube (sin créditos): busca fuentes, redacta y guarda la nota.
+const WRITE_SYSTEM = name => `Eres Brainer, el asistente personal de ${name}. Escribes en español claro, sin emojis ni hashtags.
+Haces lo que te pide de verdad y completo: informes, investigaciones, cartas, correos, resúmenes, traducciones, correcciones, ejercicios resueltos paso a paso.
+Formato markdown: un título con #, secciones con ##, listas cuando ayuden, fórmulas en LaTeX entre $...$ si hay matemáticas.
+Si te doy fuentes, úsalas y cítalas al final en una sección "## Fuentes" con sus enlaces. No inventes datos ni cifras: si falta un dato, dilo.
+Si es un texto para enviar (carta, correo, mensaje), escríbelo listo para copiar y recuerda que ${name} lo envía, tú no.`;
+async function handleWrite(text) {
+  if (!(await cloudReady())) { await renderConnectCard(); addMsg('brainer', 'Para redactar o investigar necesito tu nube. Pega la frase secreta arriba y pulsa Conectar.'); return; }
+  const holder = addMsg('brainer', `<span class="working"><i></i> buscando fuentes y redactando…</span>`);
+  try {
+    hud('pensando', 'redactando en tu nube…');
+    const needsSources = /(investiga|informe|reporte|ensayo|articulo|monografia|informacion|datos|fuentes|compara|analiza|resumen de|historia|que es|quien)/i.test(normalize(text));
+    const q = text.replace(/^(brainer[, ]*)?(por favor |porfa )?(hazme|haz|redactame|redacta|escribeme|escribe|investiga|investigame|dame|quiero|necesito)( un| una| el| la)?\s*(informe|reporte|ensayo|articulo|resumen|investigacion)?\s*(sobre|de|acerca de)?\s*/i, '').slice(0, 120);
+    const [web, wiki] = needsSources ? await Promise.all([tools.search(q).catch(() => []), tools.wiki(q).catch(() => null)]) : [[], null];
+    const fuentes = [];
+    if (wiki && wiki.found) fuentes.push(`- ${wiki.title} (Wikipedia): ${wiki.extract.slice(0, 900)} [${wiki.url}]`);
+    for (const f of (web || []).slice(0, 5)) fuentes.push(`- ${f.title}: ${f.snippet} [${f.url}]`);
+    const prof = await kv.get('profile', {}); const name = prof.name || 'Smith';
+    const facts = ((await kv.get('memory', {})).facts || []).slice(-15).map(f => '- ' + f.text).join('\n');
+    const ctx = search(state.notes, text, { limit: 3 }).map(x => `«${x.note.title}»: ${stripTags(x.note.body).slice(0, 500)}`).join('\n');
+    const system = WRITE_SYSTEM(name) + (facts ? `\nLo que sabes de ${name}:\n${facts}` : '') + (ctx ? `\nNotas suyas relacionadas:\n${ctx}` : '') + (fuentes.length ? `\nFuentes encontradas ahora en la web (úsalas y cítalas):\n${fuentes.join('\n')}` : '');
+    const res = await cloudChat({ system, messages: [{ role: 'user', content: text }], maxTokens: 2200 });
+    const body = res.text.replace(/^\s*\[memoria\].*$/gim, '').trim();
+    const title = (body.match(/^#\s+(.+)$/m) || [])[1] || text.slice(0, 60);
+    if (!markedPromise) markedPromise = import('https://cdn.jsdelivr.net/npm/marked@18/+esm').then(m => m.marked);
+    let html; try { const marked = await markedPromise; await loadKatex().catch(() => null); html = texRender(marked.parse(body, { breaks: true })); } catch (_) { html = esc(body); }
+    const note = await notes.save({ title: title.slice(0, 90), type: 'informe', tagText: 'informe, brainer, redaccion', body });
+    await loadNotes(); syncNow({ silent: true }).catch(() => {});
+    holder.innerHTML = `<div class="doc">${html}</div><div class="row small"><a href="#" class="btn ghost small" data-open="${note.id}">Abrir en la bóveda</a><button class="btn ghost small" data-copy-note="${note.id}">Copiar texto</button></div>` + tierNote({ tier: 2, reason: `redactado en tu nube · ${esc(res.model.split('/').pop())}${fuentes.length ? ' · ' + fuentes.length + ' fuentes' : ''}` });
+    const first = stripTags(body).split(/(?<=[.!?])\s/).slice(0, 2).join(' ');
+    if (state.settings.voiceReply && (state.lastInputWasVoice || state.userGestured)) state.speaking = speakHud(`Listo. ${title}. ${first.slice(0, 260)} Lo tienes completo en pantalla y guardado en tu bóveda.`).catch(() => {});
+  } catch (err) { holder.innerHTML = `No pude terminarlo: ${esc(err.message)}. Inténtalo otra vez.`; hud('error'); setTimeout(() => hud('inactivo'), 1200); }
+}
+// Fórmulas $...$ dentro de HTML ya renderizado
+function texRender(html) { return html.replace(/\$\$([^$]+)\$\$/g, (_, m) => tex(m.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'), true)).replace(/\$([^$\n<]+)\$/g, (_, m) => tex(m.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'), false)); }
 
 // Lección guiada: videos, ideas, fórmulas, ejercicio paso a paso, gráfica y fuentes. Se guarda como nota.
 async function handleLesson(topic) {
@@ -886,7 +927,7 @@ async function convoLoop() {
     // 2) transcribir en tu nube
     hud('pensando', 'transcribiendo…'); voiceUi(true, 'Transcribiendo…');
     let text = '';
-    try { text = await cloudTranscribe(clip); } catch (err) { toast('No pude transcribir: ' + err.message, 3000); continue; }
+    try { text = await cloudTranscribe(clip, { hint: await voiceHint() }); } catch (err) { toast('No pude transcribir: ' + err.message, 3000); continue; }
     if (!text || text.replace(/[^\p{L}\p{N}]/gu, '').length < 2) continue;
     if (BYE.test(text.trim().toLowerCase())) { addMsg('user', esc(text)); addMsg('brainer', 'Hasta luego, Smith. Aquí sigo.', { speakText: 'Hasta luego. Aquí sigo.', always: true }); await state.speaking; endVoice(); return; }
     // 3) responder (Brainer habla) y 4) dejar que lo interrumpas
@@ -905,6 +946,13 @@ async function waitSpeaking() {
   state.speaking = null;
   if (!interrupted) await new Promise(r => setTimeout(r, 250));
 }
+// Vocabulario de Smith para el oído: nombres propios, temas y títulos recientes (Whisper lo usa como contexto)
+async function voiceHint() {
+  const p = await kv.get('profile', {});
+  const facts = ((await kv.get('memory', {})).facts || []).slice(-8).map(f => f.text);
+  const titles = state.notes.slice(0, 12).map(n => n.title);
+  return [`Conversación en español de Perú con Brainer, el asistente de ${p.name || 'Smith'}.`, 'Palabras frecuentes: Brainer, Smith, Carina, Claude Code, lección, parábola, elipse, informe, bóveda, app, código.', ...facts, titles.join(', ')].join(' ').slice(0, 400);
+}
 // Modo manual (ajuste): pulsa, habla, vuelve a pulsar para enviar
 async function manualVoice() {
   const btn = $('#btn-voice'); const input = $('#composer-input'); const ph = input.placeholder;
@@ -917,7 +965,7 @@ async function manualVoice() {
     const clip = await rec.done; state.recording = null; btn.classList.remove('active');
     if (!clip) { addMsg('brainer', 'No te escuché. Pulsa el micrófono, habla y vuelve a pulsarlo cuando termines.'); return; }
     hud('pensando', 'transcribiendo en tu nube…'); setStatus('transcribiendo', 'thinking'); input.placeholder = 'Transcribiendo…';
-    const text = await cloudTranscribe(clip);
+    const text = await cloudTranscribe(clip, { hint: await voiceHint() });
     if (!text) { addMsg('brainer', 'Grabé, pero no distinguí palabras. Acércate al micrófono e inténtalo otra vez.'); return; }
     input.value = text; await new Promise(r => setTimeout(r, 500)); input.value = '';
     showView('inicio');
@@ -956,6 +1004,8 @@ function bind() {
   $('#composer').onsubmit = e => { e.preventDefault(); const i = $('#composer-input'); const v = i.value; i.value = ''; handleInput(v); };
   $('#lesson-form').onsubmit = e => { e.preventDefault(); const i = $('#lesson-topic'); const t = i.value.trim(); if (!t) return; i.value = ''; showView('inicio'); handleInput('voy a estudiar ' + t); };
   document.addEventListener('click', e => {
+    const cp = e.target.closest('[data-copy-note]');
+    if (cp) { const n = state.notes.find(x => x.id === cp.dataset.copyNote); if (n) navigator.clipboard.writeText(n.body).then(() => toast('Texto copiado')).catch(() => toast('No se pudo copiar')); return; }
     const open = e.target.closest('[data-open]');
     if (open) { e.preventDefault(); const n = state.notes.find(x => x.id === open.dataset.open); if (n) openNote(n); return; }
     const tag = e.target.closest('[data-tag]');

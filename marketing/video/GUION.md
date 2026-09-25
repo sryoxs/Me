@@ -64,3 +64,45 @@ cd marketing/video
 - Textos, tiempos y el **handle** (`HANDLE: '@kusical'`) están en `src/config.js`.
 - Para ver cuadros sueltos: `node scripts/render.js preview /tmp/prev 1.5 13.7 30` (con `SAFE=1` se ven las zonas seguras).
 - Para rehacer las capturas de la app: `NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=… NODE_PATH_PW=$(npm root -g)/playwright node scripts/capture.js '[{"name":"dash","click":["Saltar","Seguir sin cuenta"]}]'`. El script recorre solo el onboarding de la demo.
+
+---
+
+# Versión 2 (v2): toma real + tramo animado (vertical y horizontal)
+
+**Entregables:**
+- `kusical-promo-v2-vertical.mp4`: 1080x1920, para TikTok, Reels y Shorts.
+- `kusical-promo-v2-horizontal.mp4`: 1920x1080, para YouTube y la web.
+- `portada-v2.png`: portada vertical.
+
+**Estructura:** primero va la **toma real** de Gemini, completa y con su audio original al 100 %. Luego entra el **tramo animado** de 21.3 s, a 120 BPM. Cada corte cae al inicio de un compás y el *drop* coincide con el ¡pop! del pixelado. La música empieza cuando termina la toma. Antes solo suena un riser suave en los últimos 0.5 s de la toma.
+
+Los tiempos de la tabla cuentan desde el inicio del tramo. Tiempo en el video = duración de la toma (unos 10 s) + tiempo del tramo.
+
+| Tramo | Escena | Qué se ve | Texto | Transición de salida | Voz en off (propuesta) |
+|---|---|---|---|---|---|
+| 0.0–1.0 | **Kusi salta** | Puente con la toma. Kusi, con el sprite exacto de la app, brinca y vuela hacia la cámara entre líneas de velocidad pixel. | — | destello | "¡Y aquí entra Kusi!" |
+| 1.0–4.0 | **Pixelado → Diario** | La foto real del plato se pixela en 5 golpes (×2 … ×32) y pasa a ser un plato pixel. En el ¡pop! (drop) hay onda de choque y confeti. Sube un iPhone con el **Diario real**, el plato cae en la fila "Cena", la tarjeta se abre con los ingredientes (210 / 140 / 100) y aparece "+450 kcal". | DIRECTO AL DIARIO · +450 KCAL | zoom a través | "Lo escaneo y ¡pum!, directo a mi diario." |
+| 4.0–6.0 | **Comida peruana** | Tres fotos (lomo saltado, ceviche, ají de gallina). Cada una se escanea al ritmo y muestra su etiqueta. | RECONOCE COMIDA PERUANA | whip pan | "Reconoce comida peruana…" |
+| 6.0–8.0 | **Súper** | Paquete pixel con código de barras, láser, bip y tarjeta con el resultado. Aparecen Plaza Vea, Tottus y Metro. | ¿ALGO DEL SÚPER? · 198 kcal | wipe de bloques | "…y lo del súper, con el código de barras." |
+| 8.0–10.0 | **Plan exacto** | Chips de objetivo que cambian al ritmo y un iPhone con la **captura real** del plan. El 1860 se resalta. | TU PLAN EXACTO | whip pan vertical | "Me arma un plan exacto." |
+| 10.0–12.0 | **Coach** | Pregunta, puntos de escritura y respuesta de Kusi escrita en vivo. Kusi habla y saluda. | KUSI TE EXPLICA · Sin sermones | mosaico | "Kusi me explica cada número. Sin sermones." |
+| 12.0–14.0 | **Racha** | Fuego pixel que late, contador de 1 a 7 y la semana que se enciende. | NO ROMPAS TU RACHA | wipe de bloques | "No rompas tu racha…" |
+| 14.0–16.0 | **Comunidad** | Feed en movimiento con platos pixelados de otros usuarios, avatares de Kusi, likes y rachas. | LA COMUNIDAD | zoom a través | "…mira qué come la comunidad…" |
+| 16.0–18.0 | **Hazlo tuyo** | 6 outfits, uno por corchea. El tema pasa a modo noche con un círculo pixel. | HAZLO TUYO · outfits, pelajes y temas | mosaico | "…y viste a tu Kusi como quieras." |
+| 18.0–21.3 | **Cierre** | Logo letra por letra, Kusi saluda, confeti y montañas en parallax. | KUSICAL · Gratis · sin descargar · Link en la bio · @kusical | — | "KusiCal. Gratis, sin descargar. Link en la bio." |
+
+**Formatos:** en **vertical** los títulos van arriba, centrados en x=540, y el contenido abajo. Se respetan las zonas seguras de TikTok: 250 px arriba, 400 px abajo y 150 px a los lados. En **horizontal** el título va en la columna izquierda y el contenido (teléfono, tarjetas, Kusi) en la derecha, con márgenes de 80 px. No hay barras negras. `render(t)` toma el formato de la URL (`?fmt=v` o `?fmt=h`), que fija `CFG.W`, `CFG.H` y `CFG.MODE`.
+
+**Audio:** el audio de la toma queda intacto. La música se normaliza sola a -14 LUFS y el limitador está en -1 dBTP. Los efectos incluyen whoosh en cada corte, blips en cada palabra de los títulos, pops en el pixelado, ding en las kcal, bip del lector y más.
+
+**Regenerar:**
+```bash
+cd marketing/video
+./scripts/unir-v2.sh                         # vertical   (usa toma/toma-vertical.mp4)
+FMT=h ./scripts/unir-v2.sh                   # horizontal (usa toma/toma-horizontal.mp4)
+RERENDER=1 ./scripts/unir-v2.sh              # re-renderiza el tramo después de cambiar src/v2/
+PAGE=src/v2/index.html node scripts/render.js cover portada-v2.png
+# revisar cuadros sueltos con zonas seguras:
+PAGE=src/v2/index.html FMT=h SAFE=1 node scripts/render.js preview /tmp/prev 1.5 5 9.5
+```
+Los textos, tiempos, cortes y el handle (`HANDLE`) se editan en `src/v2/config.js`. La música está en `scripts/music-v2.py`.

@@ -4,6 +4,7 @@
 //   node render.js seg B out.mp4          → tramo B (A_END → B_END)
 //   node render.js preview dir t1 t2 …    → PNGs sueltos para revisar (añade ?safe=1 con SAFE=1)
 //   node render.js cover portada.png      → portada 1080x1920
+//   PAGE=src/v2/index.html [FMT=h] node render.js seg V2 out.mp4   → tramo animado v2 (vertical u horizontal)
 const { chromium } = require(process.env.NODE_PATH_PW || 'playwright');
 const http = require('http'), fs = require('fs'), path = require('path');
 const { spawn, execSync } = require('child_process');
@@ -29,9 +30,9 @@ function ffmpegBin() {
 (async () => {
   const [mode, a1, ...rest] = process.argv.slice(2);
   const srv = await serve();
-  const base = `http://127.0.0.1:${srv.address().port}/src/index.html${process.env.SAFE ? '?safe=1' : ''}`;
+  const base = `http://127.0.0.1:${srv.address().port}/${process.env.PAGE || 'src/index.html'}?fmt=${process.env.FMT || 'v'}${process.env.SAFE ? '&safe=1' : ''}`;
   const b = await chromium.launch();
-  const page = await b.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
+  const page = await b.newPage({ viewport: process.env.FMT === 'h' ? { width: 1920, height: 1080 } : { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
   page.on('pageerror', (e) => console.error('pageerror', e.message));
   page.on('console', (m) => { if (m.type() === 'error') console.error('console', m.text()); });
   await page.goto(base); await page.evaluate(() => window.ready);
@@ -49,7 +50,7 @@ function ffmpegBin() {
     await canvas.screenshot({ path: a1 });
   } else if (mode === 'seg') {
     const out = rest[0];
-    const [t0, t1] = a1 === 'A' ? [0, cfg.A_END] : [cfg.A_END, cfg.B_END];
+    const [t0, t1] = a1 === 'A' ? [0, cfg.A_END] : a1 === 'V2' ? [0, cfg.DUR] : [cfg.A_END, cfg.B_END];
     const n = Math.round((t1 - t0) * cfg.FPS);
     const ff = spawn(ffmpegBin(), ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(cfg.FPS), '-c:v', 'mjpeg', '-i', '-',
       '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', String(cfg.FPS), out], { stdio: ['pipe', 'inherit', 'inherit'] });

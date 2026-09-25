@@ -31,5 +31,5 @@ fc+="${cat_u}concat=n=$n:v=1:a=0[u];${cat_l}concat=n=$n:v=1:a=0[l];[u][l]$LOOK[v
   -filter_complex "$fc" -map "[v]" -map 2:a "${ENC[@]}" -shortest "$DIR/toma-vertical.mp4"
 
 for f in toma-horizontal toma-vertical; do
-  "$FF" -i "$DIR/$f.mp4" 2>&1 | grep -E "Duration|Video:" | sed "s/^/$f: /"
+  { "$FF" -i "$DIR/$f.mp4" 2>&1 || true; } | grep -E "Duration|Video:" | sed "s/^/$f: /"
 done

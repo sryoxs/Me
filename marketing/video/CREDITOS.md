@@ -32,3 +32,9 @@ La pista chiptune y todos los efectos (blips, ¡pop!, moneda, barridos) se sinte
 ## Marcas mencionadas
 
 "Plaza Vea", "Tottus" y "Metro" aparecen solo como texto, para indicar dónde se compran productos que se pueden escanear. No se usan sus logos. El paquete de "Galletas de avena" es genérico e inventado.
+
+## Versión 2
+
+- **Toma real** (`toma/`): la entrega el dueño. Es un video generado con Gemini, y `toma/plato.png` es un cuadro del ceviche de esa toma. Los derechos y términos de uso dependen de la cuenta de Gemini del dueño.
+- **Diario de la app:** las capturas son reales (`capturas/v2/`). Las de "después" se tomaron tras agregar el ceviche en la demo. Los valores de la IA simulada se ajustaron en el DOM antes de capturar (Cena 450 = 210 + 140 + 100) para que coincidan con la toma.
+- **Música v2** (`scripts/music-v2.py`): original y sintetizada, sin derechos de terceros.

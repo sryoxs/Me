@@ -1,0 +1,35 @@
+{
+  "descripcion": "El equipo de Brainer: cinco subagentes fijos con memoria propia (.claude/agents). Una habilidad es el procedimiento; el agente es quien lo corre.",
+  "agentes": [
+    {
+      "id": "archivista",
+      "nombre": "Archivista",
+      "rol": "Vacía el inbox: afila, etiqueta y archiva por tipo. Recuerda cómo clasificas tú.",
+      "icono": "cards"
+    },
+    {
+      "id": "tejedor",
+      "nombre": "Tejedor",
+      "rol": "Lee la semana entera y encuentra conexiones no obvias. Recuerda cuáles descartaste.",
+      "icono": "chart"
+    },
+    {
+      "id": "escriba",
+      "nombre": "Escriba",
+      "rol": "Convierte briefs en piezas con tu voz. Recuerda tus correcciones.",
+      "icono": "news"
+    },
+    {
+      "id": "examinador",
+      "nombre": "Examinador",
+      "rol": "Te pregunta sin ver tus respuestas previas y califica contra el material.",
+      "icono": "research"
+    },
+    {
+      "id": "programador",
+      "nombre": "Programador",
+      "rol": "Código en ramas claude/…, con pruebas. Nunca toca main ni crea recursos.",
+      "icono": "code"
+    }
+  ]
+}

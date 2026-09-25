@@ -1,0 +1,75 @@
+{
+  "descripcion": "Habilidades de Brainer. Las de nivel 1 corren en tu dispositivo; las de nivel 3 las ejecuta Claude Code sobre el vault (repositorio Me) y el resultado vuelve a la app.",
+  "habilidades": [
+    {
+      "id": "planificar-hoy",
+      "nombre": "Planificar hoy",
+      "icono": "plan",
+      "nivel": 1,
+      "descripcion": "Tus 3 prioridades, la agenda y el repaso pendiente, al instante."
+    },
+    {
+      "id": "repaso",
+      "nombre": "Repaso",
+      "icono": "cards",
+      "nivel": 1,
+      "descripcion": "Tarjetas que tocan hoy con repetición espaciada."
+    },
+    {
+      "id": "leccion",
+      "nombre": "Lección guiada",
+      "icono": "cards",
+      "nivel": 2,
+      "descripcion": "Videos, fórmulas, ejercicio resuelto paso a paso, gráfica y fuentes de un tema. Di «voy a estudiar…»."
+    },
+    {
+      "id": "parte-del-dia",
+      "nombre": "Parte del día",
+      "icono": "news",
+      "nivel": 3,
+      "descripcion": "Correo urgente, agenda, inbox, tareas y tres prioridades. Claude Code lo prepara."
+    },
+    {
+      "id": "procesar-inbox",
+      "nombre": "Procesar inbox",
+      "icono": "cards",
+      "nivel": 3,
+      "descripcion": "El archivista afila tus capturas a una frase, tres etiquetas y las archiva por tipo."
+    },
+    {
+      "id": "conexiones-semana",
+      "nombre": "Conexiones",
+      "icono": "chart",
+      "nivel": 3,
+      "descripcion": "El tejedor cruza tus notas de la semana y devuelve las conexiones que sorprenden."
+    },
+    {
+      "id": "examinar",
+      "nombre": "Examíname",
+      "icono": "research",
+      "nivel": 3,
+      "descripcion": "Estudio: resumen del tema, preguntas de tres niveles y calificación contra tu material."
+    },
+    {
+      "id": "brief",
+      "nombre": "Brief",
+      "icono": "plan",
+      "nivel": 3,
+      "descripcion": "Convierte una conexión o idea en un brief de cinco campos listo para escribir."
+    },
+    {
+      "id": "escribir",
+      "nombre": "Escribir",
+      "icono": "news",
+      "nivel": 3,
+      "descripcion": "El escriba convierte un brief en la pieza terminada, con tu voz."
+    },
+    {
+      "id": "proyecto",
+      "nombre": "Proyecto o app",
+      "icono": "code",
+      "nivel": 3,
+      "descripcion": "Plan por fases y código en una rama con el programador. Nada se crea ni se gasta sin tu sí."
+    }
+  ]
+}

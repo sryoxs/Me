@@ -1,0 +1,9 @@
+# Publica la ventana de Brainer (carpeta app/) como sitio estático en Cloudflare Workers.
+#   Cloudflare Workers Builds lo despliega solo en cada push (Worker "me"); a mano: npx wrangler deploy
+name = "me"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[assets]
+directory = "app"
+not_found_handling = "single-page-application"

@@ -1,0 +1,7 @@
+# Publica la ventana de Brainer como Worker autocontenido (los archivos van dentro del script).
+# Úsalo cuando la subida de assets no esté disponible:
+#   node deploy/build.mjs && npx wrangler deploy --config deploy/wrangler.toml
+name = "brainer"
+main = "serve.js"
+compatibility_date = "2025-09-01"
+workers_dev = true

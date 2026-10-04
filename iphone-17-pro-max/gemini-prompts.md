@@ -27,3 +27,19 @@
 
 ## Prompt de edición (para tus fotos reales)
 "Edita esta foto: mantén el teléfono EXACTAMENTE igual (forma, color, rayones, logotipo y cámaras). Reemplaza el fondo por una mesa de madera clara limpia con fondo desenfocado, mejora la iluminación y el balance de blancos, elimina polvo y objetos de distracción. No añadas texto. Formato cuadrado 1:1, aspecto fotográfico realista."
+
+---
+
+## Estilo de referencia (versión blanco/plata + caja)
+Las imágenes que me pasaste muestran este look: iPhone color **blanco/plata** sobre su **caja blanca** con la palabra "iPhone", sobre tela gris suave con fondo cálido desenfocado; y dos cajas selladas de frente sobre pared blanca. Para replicarlo con TU equipo, sube a Gemini tu foto real y, si quieres, la referencia como guía de estilo ("usa solo el estilo, no copies ese teléfono ni esa caja").
+
+### 6 · Teléfono sobre la caja (estilo ref. 1)
+"[Prompt base] Mi iPhone 17 Pro Max [COLOR] recostado boca abajo sobre su caja blanca original con la palabra 'iPhone' visible, sobre un sofá de tela gris verdoso, fondo cálido de madera desenfocado, luz suave lateral que marca el marco de titanio y los botones, plano ligeramente elevado, 1:1."
+
+### 7 · Caja sellada de frente (estilo ref. 2)
+"[Prompt base] La caja blanca del iPhone 17 Pro Max de frente, vertical, apoyada contra una pared blanca texturizada, sobre superficie oscura, iluminación frontal suave, la imagen del teléfono en la caja nítida, 1:1."
+> Úsala solo si tu equipo está realmente sellado/con caja.
+
+### Cómo usar las referencias
+- Guárdalas en `referencias/` (ya está ignorada por git; no se publican).
+- En Gemini: sube **tu foto** + la referencia y escribe: "Reproduce la composición e iluminación de la referencia, pero con el teléfono y la caja de MI foto, sin alterarlos."

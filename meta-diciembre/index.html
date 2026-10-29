@@ -1,10 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meta Diciembre</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Calorías, entrenos, pasos y peso para llegar en forma al 31 de diciembre.">
+<meta name="theme-color" content="#F3F4F8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1016" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meta Dic">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
-/* Layout: one phone-width column (max 520px) with a fixed bottom tab bar; cards only where an object stands apart (summary, sheet). */
+/* Layout: una columna del ancho de un celular (máx. 520px) con barra de pestañas fija abajo. */
 :root {
   --bg: #F3F4F8;
   --surface: #FFFFFF;
@@ -26,9 +40,10 @@
   --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --r: 16px;
   --tabbar: 64px;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root {
     --bg: #0E1016; --surface: #171A22; --surface-2: #232733; --fg: #ECEEF4; --muted: #9EA5B6; --line: #2B303C;
     --accent: #9583FF; --accent-ink: #0E1016; --accent-soft: #2A2550;
     --kcal: #FF7A4D; --protein: #18A09B; --carbs: #C08A10; --fat: #D9508F;
@@ -37,71 +52,68 @@
     color-scheme: dark;
   }
 }
-:root[data-theme="dark"] {
-  --bg: #0E1016; --surface: #171A22; --surface-2: #232733; --fg: #ECEEF4; --muted: #9EA5B6; --line: #2B303C;
-  --accent: #9583FF; --accent-ink: #0E1016; --accent-soft: #2A2550;
-  --kcal: #FF7A4D; --protein: #18A09B; --carbs: #C08A10; --fat: #D9508F;
-  --good: #3CC47C; --danger: #FF6B6B;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .4);
-  color-scheme: dark;
-}
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
 body {
+  margin: 0;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.45;
-  -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); background: var(--bg); z-index: 25; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
+a { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 h1, h2, h3 { margin: 0; text-wrap: balance; }
 p { margin: 0; }
-.num { font-variant-numeric: tabular-nums; }
+ol, ul { margin: 0; }
 
 .app {
   max-width: 520px;
   margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 18px calc(var(--tabbar) + 28px + env(safe-area-inset-bottom, 0px));
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(var(--tabbar) + 28px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 
-/* Header */
+/* Encabezado */
 .top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .top h1 { font-family: var(--font-display); font-weight: 800; font-size: 34px; line-height: 1.05; letter-spacing: -.02em; margin-top: 2px; }
 .countdown { text-align: right; }
 .countdown b { display: block; font-family: var(--font-display); font-size: 26px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
 .countdown span { font-size: 12px; color: var(--muted); }
-.sync-chip { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
-.sync-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-.sync-chip.cloud::before { background: var(--good); }
+.sync-chip { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; text-align: left; }
+.sync-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+.sync-chip.ok::before { background: var(--good); }
+.sync-chip.err::before { background: var(--danger); }
 
 .view { display: flex; flex-direction: column; gap: 18px; }
 .row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.row-head h2 { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+.row-head h2, .h2 { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
 .row-head span { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fine { font-size: 13px; color: var(--muted); max-width: 65ch; }
+.lead { font-size: 15px; max-width: 65ch; }
 
-/* Summary */
+.banner { background: var(--accent-soft); border-radius: var(--r); padding: 14px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
+.banner b { display: block; }
+.banner .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Resumen */
 .summary {
-  background: var(--surface);
-  border-radius: 22px;
-  box-shadow: var(--shadow);
-  padding: 18px;
-  display: grid;
-  grid-template-columns: 128px minmax(0, 1fr);
-  gap: 18px;
-  align-items: center;
+  background: var(--surface); border-radius: 22px; box-shadow: var(--shadow); padding: 18px;
+  display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 18px; align-items: center;
 }
 .ring-wrap { position: relative; width: 128px; height: 128px; }
 .ring { width: 100%; height: 100%; transform: rotate(-90deg); }
@@ -118,28 +130,46 @@ p { margin: 0; }
 .macro-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
 .macro-head b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
 .track { height: 7px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin-top: 4px; }
-.fill { height: 100%; width: 0; border-radius: 99px; transition: width .4s ease; }
+.fill { height: 100%; width: 0; border-radius: 99px; transition: width .4s ease; background: var(--accent); }
 .fill.p { background: var(--protein); }
 .fill.c { background: var(--carbs); }
 .fill.f { background: var(--fat); }
+.fill.done { background: var(--good); }
 
-/* Add buttons */
+.duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tile {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 4px; text-align: left; min-width: 0;
+}
+.tile .k { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.tile .v { font-family: var(--font-display); font-weight: 700; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tile .v small { font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--muted); }
+.tile .s { font-size: 13px; color: var(--muted); }
+.tile.done { border-color: var(--good); }
+
 .add-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 10px; }
 .add-btn {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  min-height: 78px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface);
+  min-height: 74px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface);
   font-weight: 600; font-size: 14px; padding: 10px 6px;
 }
 .add-btn svg { width: 26px; height: 26px; }
 .add-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-.add-btn:active { transform: scale(.98); }
+.add-btn:active, .btn:active { transform: scale(.98); }
 
-/* Water */
 .cups { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
 .cup { height: 34px; border-radius: 6px 6px 10px 10px; border: 1.5px solid var(--line); background: transparent; padding: 0; }
 .cup.on { background: var(--protein); border-color: var(--protein); }
 
-/* Meals */
+.check-row { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+.check-row .txt { flex: 1; min-width: 0; }
+.check-row .txt b { display: block; }
+.check-row .txt small { color: var(--muted); font-size: 13px; }
+.tick { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--line); background: transparent; display: grid; place-items: center; flex: none; padding: 0; }
+.tick svg { width: 18px; height: 18px; opacity: 0; }
+.tick[aria-pressed="true"] { background: var(--good); border-color: var(--good); color: #fff; }
+.tick[aria-pressed="true"] svg { opacity: 1; }
+
 .meals { display: flex; flex-direction: column; gap: 14px; }
 .meal h3 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
 .meal h3 span { font-variant-numeric: tabular-nums; letter-spacing: 0; }
@@ -149,63 +179,65 @@ p { margin: 0; }
 .entry .sub { font-size: 13px; color: var(--muted); }
 .entry .kc { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
 .entry .kc small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); }
-.icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; font-size: 22px; line-height: 1; }
-.icon-btn:hover { background: var(--surface-2); }
+.icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; font-size: 22px; line-height: 1; padding: 0; }
 .empty { border: 1.5px dashed var(--line); border-radius: var(--r); padding: 18px; color: var(--muted); font-size: 15px; }
 .empty b { color: var(--fg); display: block; margin-bottom: 2px; }
 
-/* Week chart */
-.week-plot { position: relative; height: 120px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; margin-top: 10px; border-bottom: 1px solid var(--line); }
+/* Barras de 7 días */
+.week-plot { position: relative; height: 110px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; margin-top: 10px; border-bottom: 1px solid var(--line); }
 .wk-col { height: 100%; display: flex; align-items: flex-end; justify-content: center; background: transparent; border: 0; padding: 0; }
 .wk-bar { width: 100%; max-width: 30px; border-radius: 4px 4px 0 0; background: var(--accent); min-height: 2px; transition: height .4s ease; }
-.wk-col.empty-day .wk-bar { background: var(--surface-2); }
+.wk-col.zero .wk-bar { background: var(--surface-2); }
 .wk-col.sel .wk-bar { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 .wk-target { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--muted); pointer-events: none; }
 .wk-target span { position: absolute; right: 0; top: -18px; font-size: 11px; color: var(--muted); background: var(--bg); padding-left: 4px; }
 .wk-labels { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; text-align: center; font-size: 12px; color: var(--muted); margin-top: 6px; }
 .wk-labels .today { color: var(--fg); font-weight: 700; }
 
-/* Calculator */
-.result-hero { background: var(--accent); color: var(--accent-ink); border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 4px; }
-.result-hero .eyebrow { color: inherit; opacity: .8; }
-.hero-num { font-family: var(--font-display); font-weight: 800; font-size: 52px; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.hero-num .unit { font-size: 22px; font-weight: 600; letter-spacing: 0; }
-.hero-sub { font-size: 15px; opacity: .9; }
-.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.stat .k { font-size: 12px; color: var(--muted); line-height: 1.25; }
-.stat .v { font-family: var(--font-display); font-weight: 700; font-size: 21px; font-variant-numeric: tabular-nums; }
-.stat .v small { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--muted); }
-.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
-.dot.p { background: var(--protein); } .dot.c { background: var(--carbs); } .dot.f { background: var(--fat); }
-.projection { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; display: flex; flex-direction: column; gap: 4px; }
-.projection b { font-variant-numeric: tabular-nums; }
+/* Formularios */
 .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; }
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .field.full { grid-column: 1 / -1; }
 .field > label, .field > .label { font-size: 13px; font-weight: 600; color: var(--muted); }
 .input-unit { position: relative; }
 .input-unit span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
-input[type="number"], input[type="text"], input[type="time"], select, textarea {
+input[type="number"], input[type="text"], input[type="password"], input[type="time"], input[type="search"], select, textarea {
   width: 100%; min-height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface);
-  padding: 10px 12px; font-size: 16px; font-variant-numeric: tabular-nums;
+  padding: 10px 12px; font-size: 16px; font-variant-numeric: tabular-nums; -webkit-appearance: none; appearance: none;
 }
+select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
 .input-unit input { padding-right: 44px; }
 textarea { resize: vertical; line-height: 1.4; }
 .seg { display: flex; background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 3px; }
 .seg button { flex: 1; min-height: 40px; border: 0; border-radius: 9px; background: transparent; font-weight: 600; font-size: 14px; color: var(--muted); padding: 6px 4px; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
-.fine { font-size: 13px; color: var(--muted); max-width: 65ch; }
-
-/* Weight */
-.w-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
 .btn { min-height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; padding: 10px 18px; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn.small { min-height: 36px; padding: 6px 12px; font-size: 14px; }
 .btn.wide { width: 100%; }
 .btn:disabled { opacity: .55; cursor: default; }
+.inline { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+
+/* Calculadora */
+.result-hero { background: var(--accent); color: var(--accent-ink); border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 4px; }
+.result-hero .eyebrow { color: inherit; opacity: .8; }
+.hero-num { font-family: var(--font-display); font-weight: 800; font-size: 52px; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.hero-num .unit { font-size: 22px; font-weight: 600; letter-spacing: 0; }
+.hero-sub { font-size: 15px; opacity: .9; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .stats4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .stats4 .stat { padding: 10px; }
+.stat .k { font-size: 12px; color: var(--muted); line-height: 1.25; }
+.stat .v { font-family: var(--font-display); font-weight: 700; font-size: 21px; font-variant-numeric: tabular-nums; }
 .stats4 .stat .v { font-size: 18px; }
+.stat .v small { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--muted); }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.dot.p { background: var(--protein); } .dot.c { background: var(--carbs); } .dot.f { background: var(--fat); }
+.projection { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; display: flex; flex-direction: column; gap: 4px; }
+.projection b { font-variant-numeric: tabular-nums; }
+
+/* Gráfica de peso */
 .chart-box { background: var(--surface); border-radius: 22px; box-shadow: var(--shadow); padding: 14px 10px 12px; }
 .chart-box .readout { font-size: 14px; color: var(--muted); padding: 0 6px; min-height: 20px; font-variant-numeric: tabular-nums; }
 .chart-box .readout b { color: var(--fg); }
@@ -228,13 +260,89 @@ textarea { resize: vertical; line-height: 1.4; }
 .w-list .delta { font-size: 13px; color: var(--muted); }
 .w-list .delta.down { color: var(--good); }
 
-/* Reminders */
-.lead { font-size: 15px; max-width: 65ch; }
+/* Entreno */
+.day-chips { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.day-chip { min-height: 52px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 4px 0; font-size: 13px; font-weight: 700; }
+.day-chip small { font-size: 10px; font-weight: 600; color: var(--muted); }
+.day-chip.today { border-color: var(--accent); }
+.day-chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.day-chip[aria-pressed="true"] small { color: inherit; opacity: .85; }
+.plan-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.plan-head h2 { font-family: var(--font-display); font-size: 26px; font-weight: 800; line-height: 1.1; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
+.pill.good { background: var(--good); color: #fff; }
+.ex-list { display: flex; flex-direction: column; gap: 12px; }
+.ex { background: var(--surface); border-radius: var(--r); border: 1px solid var(--line); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ex.complete { border-color: var(--good); }
+.ex-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.ex-head b { font-size: 16px; }
+.ex-head span { font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ex-last { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.set-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr) 42px; gap: 8px; align-items: center; }
+.set-row.one { grid-template-columns: 22px minmax(0, 1fr) 42px; }
+.set-row .n { font-size: 13px; font-weight: 700; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.set-row input { min-height: 42px; padding: 8px 10px; }
+.set-row .tick { width: 42px; height: 42px; border-radius: 12px; }
+.set-row.done input { border-color: var(--good); }
+.rounds { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.round { min-height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; }
+.round[aria-pressed="true"] { background: var(--good); border-color: var(--good); color: #fff; }
+.moves { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 15px; }
+.moves li::before { content: "•"; color: var(--accent); margin-right: 6px; }
+.extra-list { list-style: none; padding: 0; border-top: 1px solid var(--line); }
+.extra-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto 36px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.hist { list-style: none; padding: 0; border-top: 1px solid var(--line); }
+.hist li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+.hist li span { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Temporizador */
+.timer {
+  position: fixed; z-index: 35; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--tabbar) + 12px + env(safe-area-inset-bottom, 0px));
+  width: min(488px, calc(100% - 24px));
+  background: var(--fg); color: var(--bg); border-radius: 20px; padding: 14px 16px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+}
+.timer.work { background: var(--accent); color: var(--accent-ink); }
+.timer-label { font-weight: 700; font-size: 15px; }
+.timer-next { font-size: 13px; opacity: .75; grid-column: 1; }
+.timer-time { grid-row: 1 / span 2; grid-column: 2; font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums; }
+.timer-actions { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 8px; }
+.timer-actions button { flex: 1; min-height: 38px; border-radius: 10px; border: 1px solid currentColor; background: transparent; color: inherit; font-weight: 700; font-size: 14px; }
+
+/* Más */
+.menu { list-style: none; padding: 0; background: var(--surface); border-radius: var(--r); border: 1px solid var(--line); overflow: hidden; }
+.menu li + li { border-top: 1px solid var(--line); }
+.menu button, .menu a { width: 100%; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border: 0; background: transparent; text-align: left; color: inherit; text-decoration: none; }
+.menu .ico { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.menu .ico svg { width: 20px; height: 20px; }
+.menu b { display: block; font-weight: 600; }
+.menu small { display: block; color: var(--muted); font-size: 13px; line-height: 1.3; }
+.menu .chev { color: var(--muted); font-size: 20px; }
+.sub-head { display: flex; align-items: center; gap: 8px; }
+.back { border: 0; background: transparent; color: var(--accent); font-weight: 600; font-size: 16px; padding: 6px 0; display: inline-flex; align-items: center; gap: 4px; }
+.steps { list-style: none; padding: 0; counter-reset: s; display: flex; flex-direction: column; gap: 12px; }
+.steps > li { counter-increment: s; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; }
+.steps > li::before { content: counter(s); width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 800; display: grid; place-items: center; font-size: 14px; }
+.steps li > div > b:first-child { display: block; }
+.steps p, .steps div { font-size: 15px; }
+.steps small { color: var(--muted); font-size: 13px; display: block; }
+.copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 8px 12px; margin-top: 6px; }
+.copy code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+.copy .lbl { display: block; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-family: var(--font-body); }
+.callout { border-left: 3px solid var(--carbs); padding: 4px 0 4px 12px; font-size: 14px; }
+.face-steps { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.face-steps li { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+.face-steps b { font-size: 15px; }
+.face-steps span { font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.face-steps p { grid-column: 1 / -1; font-size: 14px; color: var(--muted); }
+
+/* Avisos */
 .next { background: var(--accent-soft); border-radius: var(--r); padding: 12px 14px; font-size: 15px; }
-.next b { font-variant-numeric: tabular-nums; }
-.rem-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.rem-list { list-style: none; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); }
 .rem { padding: 12px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
-.rem-top { display: grid; grid-template-columns: auto minmax(0, 1fr) 132px; gap: 12px; align-items: center; }
+.rem-top { display: grid; grid-template-columns: auto minmax(0, 1fr) 128px; gap: 12px; align-items: center; }
 .rem-top input[type="time"] { padding-inline: 8px; }
 .rem-text b { display: block; }
 .rem-text small { display: block; color: var(--muted); font-size: 13px; line-height: 1.3; }
@@ -245,18 +353,14 @@ textarea { resize: vertical; line-height: 1.4; }
 .switch .knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .2s; }
 .switch input:checked + .knob { background: var(--accent); border-color: var(--accent); }
 .switch input:checked + .knob::after { transform: translateX(18px); }
-.switch input:focus-visible + .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
 .days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; padding-left: 58px; }
 .day { min-height: 32px; border-radius: 8px; border: 1px solid var(--line); background: transparent; font-size: 13px; font-weight: 600; color: var(--muted); padding: 0; }
 .day[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); }
 .status { font-size: 14px; color: var(--muted); min-height: 1.4em; }
 .status.err { color: var(--danger); }
 .status.ok { color: var(--good); }
-details.help { border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; font-size: 14px; }
-details.help summary { font-weight: 600; cursor: pointer; }
-details.help p { margin-top: 8px; color: var(--muted); }
 
-/* Tab bar */
+/* Pestañas */
 .tabs {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
   background: var(--surface); border-top: 1px solid var(--line);
@@ -270,12 +374,12 @@ details.help p { margin-top: 8px; color: var(--muted); }
 .tab[aria-current="page"] { color: var(--accent); }
 svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-/* Sheet */
+/* Hoja para agregar */
 .backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(8, 10, 20, .45); }
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 31;
-  max-height: calc(100% - 40px - env(safe-area-inset-top, 0px));
-  overflow-y: auto; overscroll-behavior: contain;
+  max-height: calc(100% - 84px - env(safe-area-inset-top, 0px));
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   background: var(--bg); border-radius: 22px 22px 0 0;
   padding-top: 8px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -286,6 +390,19 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
 .grabber { width: 40px; height: 5px; border-radius: 99px; background: var(--line); margin: 0 auto 4px; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; }
 .sheet-head h2 { font-family: var(--font-display); font-size: 22px; font-weight: 800; }
+.pane { display: flex; flex-direction: column; gap: 12px; }
+.cats { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.cats::-webkit-scrollbar { display: none; }
+.cat { flex: none; min-height: 34px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); padding: 4px 12px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.cat[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.food-list { list-style: none; padding: 0; border-top: 1px solid var(--line); }
+.food-list li + li { border-top: 1px solid var(--line); }
+.food-list button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 2px; border: 0; background: transparent; text-align: left; }
+.food-list b { display: block; font-weight: 600; }
+.food-list small { color: var(--muted); font-size: 13px; }
+.food-list .kc { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.food-list .kc small { display: block; font-weight: 500; }
+.list-label { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .photo-drop {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
   min-height: 170px; border: 1.5px dashed var(--line); border-radius: var(--r); background: var(--surface);
@@ -294,36 +411,32 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
 .photo-drop svg { width: 34px; height: 34px; color: var(--accent); }
 .photo-drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .photo-drop.has-img { border-style: solid; }
-.photo-drop.has-img .change { position: absolute; right: 10px; bottom: 10px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 99px; }
+.photo-drop .change { position: absolute; right: 10px; bottom: 10px; background: rgba(0, 0, 0, .6); color: #fff; font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 99px; }
 #photo-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .ai-status { display: flex; align-items: center; gap: 10px; font-size: 15px; background: var(--surface); border-radius: var(--r); padding: 12px 14px; }
-.ai-status span:nth-child(2) { flex: 1; }
 .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--surface-2); border-top-color: var(--accent); animation: spin 1s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.ai-result { display: flex; flex-direction: column; gap: 10px; }
-.ai-note { font-size: 14px; color: var(--muted); }
 .ai-item { display: grid; grid-template-columns: auto minmax(0, 1fr) 84px 70px; gap: 8px; align-items: center; background: var(--surface); border-radius: 12px; padding: 8px 10px; }
 .ai-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
 .ai-item .nm { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; line-height: 1.25; }
 .ai-item .nm small { display: block; color: var(--muted); font-weight: 500; font-size: 12px; }
-.ai-item input[type="number"] { min-height: 38px; padding: 6px 8px; font-size: 16px; text-align: right; }
-.ai-cols { display: grid; grid-template-columns: auto minmax(0, 1fr) 84px 70px; gap: 8px; font-size: 11px; color: var(--muted); padding: 0 10px; text-transform: uppercase; letter-spacing: .06em; }
+.ai-item input[type="number"] { min-height: 38px; padding: 6px 8px; text-align: right; }
+.ai-cols { display: grid; grid-template-columns: 20px minmax(0, 1fr) 84px 70px; gap: 8px; font-size: 11px; color: var(--muted); padding: 0 10px; text-transform: uppercase; letter-spacing: .06em; }
 .ai-cols span:nth-child(3), .ai-cols span:nth-child(4) { text-align: right; }
 .ai-total { display: flex; justify-content: space-between; font-weight: 700; padding: 0 4px; font-variant-numeric: tabular-nums; }
-.manual-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.manual-grid .full { grid-column: 1 / -1; }
 .notice { font-size: 14px; color: var(--muted); background: var(--surface); border-radius: 12px; padding: 12px 14px; }
 .notice.err { color: var(--danger); }
 
-/* Toast */
 .toast {
   position: fixed; z-index: 40; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--tabbar) + 14px + env(safe-area-inset-bottom, 0px));
+  top: calc(12px + env(safe-area-inset-top, 0px));
   width: min(480px, calc(100% - 32px));
   background: var(--fg); color: var(--bg); border-radius: 14px; padding: 12px 14px;
   display: flex; align-items: center; gap: 12px; font-size: 15px; box-shadow: 0 8px 30px rgba(0, 0, 0, .25);
 }
 .toast span { flex: 1; }
+.toast { pointer-events: none; }
+.toast button { pointer-events: auto; }
 .toast button { border: 0; background: transparent; color: inherit; font-weight: 700; text-decoration: underline; padding: 4px; }
 
 @media (max-width: 380px) {
@@ -334,62 +447,75 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
   .rem-top input[type="time"] { grid-column: 2; }
   .days { padding-left: 0; }
   .hero-num { font-size: 44px; }
+  .moves { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
 </style>
-
+</head>
+<body>
 <div class="app">
   <header class="top">
     <div>
       <p class="eyebrow" id="today-label">Hoy</p>
       <h1 id="view-title">Hoy</h1>
-      <span class="sync-chip" id="sync-chip">Guardado en este celular</span>
+      <button type="button" class="sync-chip" id="sync-chip">Solo en este celular</button>
     </div>
-    <div class="countdown"><b id="days-left">72</b><span>días para el 31 de dic</span></div>
+    <div class="countdown"><b id="days-left">63</b><span>días para el 31 de dic</span></div>
   </header>
 
   <main>
     <!-- HOY -->
     <section class="view" id="v-hoy" data-title="Hoy">
+      <div class="banner" id="install-banner" hidden>
+        <div><b>Instálala en tu iPhone</b>Toca el botón Compartir de Safari y elige “Agregar a pantalla de inicio”. Se abre como app, sin Claude.</div>
+        <div class="actions"><button type="button" class="btn small" id="install-dismiss">Entendido</button></div>
+      </div>
+      <div class="banner" id="cloud-banner" hidden>
+        <div><b>Conecta tu nube</b>Escribe tu código para guardar todo en tu Supabase y recibir tus pasos desde Atajos.</div>
+        <div class="actions"><button type="button" class="btn small primary" data-go="nube">Escribir código</button></div>
+      </div>
+
       <div class="summary">
         <div class="ring-wrap">
           <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
             <circle class="ring-track" cx="60" cy="60" r="50"></circle>
             <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="50" pathLength="100" stroke-dasharray="0 100"></circle>
           </svg>
-          <div class="ring-center"><span class="big" id="kcal-eaten">0</span><span class="small">de <span id="kcal-target">2,350</span> kcal</span></div>
+          <div class="ring-center"><span class="big" id="kcal-eaten">0</span><span class="small">de <span id="kcal-target">2,200</span> kcal</span></div>
         </div>
         <div class="summary-side">
-          <p class="left-label" id="kcal-left">Te quedan 2,350 kcal</p>
-          <div>
-            <div class="macro-head"><span>Proteína</span><b id="m-p">0 / 155 g</b></div>
-            <div class="track"><div class="fill p" id="b-p"></div></div>
-          </div>
-          <div>
-            <div class="macro-head"><span>Carbohidratos</span><b id="m-c">0 / 275 g</b></div>
-            <div class="track"><div class="fill c" id="b-c"></div></div>
-          </div>
-          <div>
-            <div class="macro-head"><span>Grasa</span><b id="m-f">0 / 70 g</b></div>
-            <div class="track"><div class="fill f" id="b-f"></div></div>
-          </div>
+          <p class="left-label" id="kcal-left">Te quedan 2,200 kcal</p>
+          <div><div class="macro-head"><span>Proteína</span><b id="m-p">0 / 160 g</b></div><div class="track"><div class="fill p" id="b-p"></div></div></div>
+          <div><div class="macro-head"><span>Carbohidratos</span><b id="m-c">0 / 230 g</b></div><div class="track"><div class="fill c" id="b-c"></div></div></div>
+          <div><div class="macro-head"><span>Grasa</span><b id="m-f">0 / 70 g</b></div><div class="track"><div class="fill f" id="b-f"></div></div></div>
         </div>
+      </div>
+
+      <div class="duo">
+        <button type="button" class="tile" id="steps-tile">
+          <span class="k">Pasos</span>
+          <span class="v" id="steps-now">0</span>
+          <span class="s" id="steps-goal">de 10,000</span>
+          <div class="track"><div class="fill" id="steps-bar"></div></div>
+        </button>
+        <button type="button" class="tile" id="workout-tile" data-tab="entreno">
+          <span class="k">Entreno</span>
+          <span class="v" id="wk-name">Torso A</span>
+          <span class="s" id="wk-sub">Gym · 0 de 7</span>
+        </button>
       </div>
 
       <div class="add-row">
         <button class="add-btn primary" type="button" data-add="foto">
-          <svg class="ic" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
-          Foto
+          <svg class="ic" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Foto
         </button>
-        <button class="add-btn" type="button" data-add="texto">
-          <svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/></svg>
-          Describir
+        <button class="add-btn" type="button" data-add="lista">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Lista
         </button>
         <button class="add-btn" type="button" data-add="manual">
-          <svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-          Manual
+          <svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Manual
         </button>
       </div>
 
@@ -398,86 +524,54 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
         <div class="cups" id="cups" role="group" aria-label="Vasos de agua de 250 ml"></div>
       </div>
 
+      <div class="check-row">
+        <button type="button" class="tick" id="face-tick" aria-pressed="false" aria-label="Marcar rutina de cara como hecha"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button>
+        <div class="txt"><b>Rutina de cara</b><small>Gua sha de 5 minutos y postura</small></div>
+        <button type="button" class="btn small" data-go="cara">Ver</button>
+      </div>
+
       <div class="meals" id="meals"></div>
 
       <div>
-        <div class="row-head"><h2>Últimos 7 días</h2><span id="week-readout"></span></div>
-        <div class="week-plot" id="week-plot"></div>
-        <div class="wk-labels" id="week-labels"></div>
+        <div class="row-head"><h2>Calorías, 7 días</h2><span id="kweek-readout"></span></div>
+        <div class="week-plot" id="kweek-plot"></div>
+        <div class="wk-labels" id="kweek-labels"></div>
       </div>
     </section>
 
-    <!-- CALCULAR -->
-    <section class="view" id="v-calcular" data-title="Calcular" hidden>
-      <div class="result-hero">
-        <p class="eyebrow">Tu meta diaria</p>
-        <p class="hero-num"><span id="c-target">2,350</span> <span class="unit">kcal</span></p>
-        <p class="hero-sub" id="c-sub">Bajas unos 0.5 kg por semana</p>
+    <!-- ENTRENO -->
+    <section class="view" id="v-entreno" data-title="Entreno" hidden>
+      <div class="day-chips" id="day-chips" role="group" aria-label="Rutina del día"></div>
+      <div class="plan-head">
+        <div><p class="eyebrow" id="plan-place">Gym</p><h2 id="plan-name">Torso A</h2></div>
+        <span class="pill" id="plan-pill">0 de 7</span>
       </div>
-      <div class="stats">
-        <div class="stat"><span class="k">Metabolismo basal</span><span class="v" id="c-bmr">1,896</span></div>
-        <div class="stat"><span class="k">Gasto diario</span><span class="v" id="c-tdee">2,939</span></div>
-        <div class="stat"><span class="k">Déficit diario</span><span class="v" id="c-def">590</span></div>
-      </div>
-      <div class="stats">
-        <div class="stat"><span class="k"><i class="dot p"></i>Proteína</span><span class="v"><span id="c-p">155</span> <small>g</small></span></div>
-        <div class="stat"><span class="k"><i class="dot c"></i>Carbos</span><span class="v"><span id="c-c">275</span> <small>g</small></span></div>
-        <div class="stat"><span class="k"><i class="dot f"></i>Grasa</span><span class="v"><span id="c-f">70</span> <small>g</small></span></div>
-      </div>
-      <div class="projection">
-        <p>Para el 31 de diciembre: <b id="c-dec">~84.5 kg</b></p>
-        <p id="c-goal-eta">Llegas a 75 kg cerca de mayo de 2027</p>
+      <div id="plan-body" class="ex-list"></div>
+      <p class="callout" id="plan-finisher" hidden></p>
+
+      <div>
+        <div class="row-head"><h2>Otra actividad</h2></div>
+        <form class="inline" id="extra-form" autocomplete="off" style="margin-top:8px">
+          <div class="form" style="grid-template-columns:minmax(0,1fr) 96px;gap:8px">
+            <input type="text" id="extra-name" placeholder="Ej. fútbol, bici, caminar" aria-label="Actividad">
+            <div class="input-unit"><input type="number" id="extra-min" inputmode="numeric" min="1" max="600" placeholder="30" aria-label="Minutos"><span>min</span></div>
+          </div>
+          <button class="btn" type="submit">Agregar</button>
+        </form>
+        <ul class="extra-list" id="extra-list" style="margin-top:10px"></ul>
       </div>
 
-      <form class="form" id="calc-form" autocomplete="off">
-        <div class="field full">
-          <span class="label">Sexo</span>
-          <div class="seg" id="sex-seg">
-            <button type="button" id="sex-m" data-v="m" aria-pressed="true">Hombre</button>
-            <button type="button" id="sex-f" data-v="f" aria-pressed="false">Mujer</button>
-          </div>
-        </div>
-        <div class="field">
-          <label for="f-age">Edad</label>
-          <div class="input-unit"><input id="f-age" type="number" inputmode="numeric" min="13" max="90" value="18"><span>años</span></div>
-        </div>
-        <div class="field">
-          <label for="f-height">Estatura</label>
-          <div class="input-unit"><input id="f-height" type="number" inputmode="numeric" min="120" max="230" value="173"><span>cm</span></div>
-        </div>
-        <div class="field">
-          <label for="f-weight">Peso actual</label>
-          <div class="input-unit"><input id="f-weight" type="number" inputmode="decimal" step="0.1" min="35" max="250" value="90"><span>kg</span></div>
-        </div>
-        <div class="field">
-          <label for="f-goal">Peso meta</label>
-          <div class="input-unit"><input id="f-goal" type="number" inputmode="decimal" step="0.1" min="35" max="250" value="75"><span>kg</span></div>
-        </div>
-        <div class="field full">
-          <label for="f-activity">Actividad</label>
-          <select id="f-activity">
-            <option value="1.2">Casi no hago ejercicio</option>
-            <option value="1.375">Ejercicio 1 a 3 días por semana</option>
-            <option value="1.55" selected>Ejercicio 3 a 5 días por semana</option>
-            <option value="1.725">Ejercicio 6 o 7 días por semana</option>
-            <option value="1.9">Entreno diario y trabajo físico</option>
-          </select>
-        </div>
-        <div class="field full">
-          <span class="label">Ritmo</span>
-          <div class="seg" id="pace-seg">
-            <button type="button" id="pace-10" data-v="0.1" aria-pressed="false">Suave</button>
-            <button type="button" id="pace-20" data-v="0.2" aria-pressed="true">Recomendado</button>
-            <button type="button" id="pace-0" data-v="0" aria-pressed="false">Mantener</button>
-          </div>
-        </div>
-      </form>
-      <p class="fine">Se calcula con la fórmula Mifflin-St Jeor: 10 × peso + 6.25 × estatura − 5 × edad + 5 (hombre) o − 161 (mujer), multiplicado por tu actividad. “Recomendado” resta 20 % y “Suave” resta 10 %. Proteína 1.7 g por kg, grasa 0.8 g por kg y el resto en carbohidratos. Cuando registras un peso nuevo, la meta se recalcula. Si pasan 2 semanas sin que tu peso baje, resta 150 kcal.</p>
+      <button type="button" class="btn primary wide" id="finish-workout">Terminar entreno</button>
+
+      <div>
+        <div class="row-head"><h2>Historial</h2><span id="hist-count"></span></div>
+        <ul class="hist" id="hist" style="margin-top:8px"></ul>
+      </div>
     </section>
 
-    <!-- PESO -->
-    <section class="view" id="v-peso" data-title="Peso" hidden>
-      <form class="w-form" id="w-form" autocomplete="off">
+    <!-- PROGRESO -->
+    <section class="view" id="v-progreso" data-title="Progreso" hidden>
+      <form class="inline" id="w-form" autocomplete="off">
         <div class="field">
           <label for="w-input">Peso de hoy</label>
           <div class="input-unit"><input id="w-input" type="number" inputmode="decimal" step="0.1" min="35" max="250" placeholder="90.0"><span>kg</span></div>
@@ -488,49 +582,245 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
         <div class="stat"><span class="k">Inicio</span><span class="v" id="w-start">90.0</span></div>
         <div class="stat"><span class="k">Actual</span><span class="v" id="w-now">90.0</span></div>
         <div class="stat"><span class="k">Cambio</span><span class="v" id="w-delta">0.0</span></div>
-        <div class="stat"><span class="k">31 dic aprox.</span><span class="v" id="w-dec">84.5</span></div>
+        <div class="stat"><span class="k">31 dic aprox.</span><span class="v" id="w-dec">83.1</span></div>
       </div>
       <div class="chart-box">
         <p class="readout" id="w-readout">Toca un punto para ver el detalle</p>
         <svg id="w-chart" viewBox="0 0 340 210" role="img" aria-label="Gráfica de tu peso y el ritmo esperado hasta el 31 de diciembre"></svg>
         <div class="legend"><span><i></i>Tu peso</span><span><i class="dash"></i>Ritmo esperado</span><span id="legend-goal"><i class="goal"></i>Meta</span></div>
       </div>
-      <ul class="w-list" id="w-list"></ul>
+
+      <div>
+        <div class="row-head"><h2>Pasos, 7 días</h2><span id="sweek-readout"></span></div>
+        <div class="week-plot" id="sweek-plot"></div>
+        <div class="wk-labels" id="sweek-labels"></div>
+      </div>
+
+      <div>
+        <div class="row-head"><h2>Cintura</h2><span id="waist-last"></span></div>
+        <form class="inline" id="waist-form" autocomplete="off" style="margin-top:8px">
+          <div class="input-unit"><input id="waist-input" type="number" inputmode="decimal" step="0.5" min="40" max="200" placeholder="Mide a la altura del ombligo" aria-label="Cintura en centímetros"><span>cm</span></div>
+          <button class="btn" type="submit">Guardar</button>
+        </form>
+        <p class="fine" style="margin-top:8px">Mídela una vez por semana, relajado y sin meter la panza. Si la cintura baja, estás perdiendo grasa aunque la báscula no se mueva.</p>
+      </div>
+
+      <div>
+        <div class="row-head"><h2>Pesos registrados</h2></div>
+        <ul class="w-list" id="w-list" style="margin-top:8px"></ul>
+      </div>
       <p class="fine">Pésate una vez por semana, el mismo día, en ayunas y después de ir al baño. Lo que importa es la tendencia: un día puede subir medio kilo solo por agua o sal.</p>
     </section>
 
-    <!-- AVISOS -->
-    <section class="view" id="v-avisos" data-title="Avisos" hidden>
-      <p class="lead">Una página web no puede mandarte notificaciones con la app cerrada. Por eso tus avisos se guardan en Google Calendar y tu iPhone te avisa a la hora exacta. Mientras tengas esta página abierta, también te aviso aquí.</p>
-      <p class="next" id="next-rem">Próximo aviso: —</p>
-      <ul class="rem-list" id="rem-list"></ul>
-      <button class="btn primary wide" type="button" id="cal-sync">Enviar a Google Calendar</button>
-      <p class="status" id="cal-status" role="status"></p>
-      <details class="help">
-        <summary>¿Cómo me llegan al iPhone?</summary>
-        <p>Si usas la app de Google Calendar, activa sus notificaciones. Si usas el Calendario de Apple, abre Ajustes, busca Calendario → Cuentas y agrega tu cuenta de Google. Los avisos aparecen a la hora que elegiste, todos los días marcados.</p>
-      </details>
+    <!-- MÁS -->
+    <section class="view" id="v-mas" data-title="Más" hidden>
+      <div id="mas-menu" class="view">
+        <ul class="menu">
+          <li><button type="button" data-go="plan"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h2M14 12h2M8 16h2M14 16h2"/></svg></span><span><b>Mi plan</b><small>Calorías, macros y ritmo para bajar</small></span><span class="chev">›</span></button></li>
+          <li><button type="button" data-go="cara"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M6 10c0-4 3-6 6-6s6 2 6 6c0 5-3 9-6 9s-6-4-6-9z"/><path d="M9.5 15c1.5 1 3.5 1 5 0"/></svg></span><span><b>Rutina de cara</b><small>Gua sha para desinflamar y marcar la mandíbula</small></span><span class="chev">›</span></button></li>
+          <li><button type="button" data-go="pasos"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M8 3c2 0 3 2 3 5s-1 5-3 5-3-2-3-5 1-5 3-5zM16 9c2 0 3 2 3 5s-1 5-3 5-3-2-3-5 1-5 3-5zM6 15h4M14 21h4"/></svg></span><span><b>Pasos con Atajos</b><small>Manda tus pasos de Salud a la app</small></span><span class="chev">›</span></button></li>
+          <li><button type="button" data-go="avisos"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span><span><b>Avisos</b><small>Comidas, entreno, agua y magnesio</small></span><span class="chev">›</span></button></li>
+          <li><button type="button" data-go="fotos"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span><span><b>Fotos con IA</b><small id="fotos-state">Pon tu API key de Anthropic</small></span><span class="chev">›</span></button></li>
+          <li><button type="button" data-go="nube"><span class="ico"><svg class="ic" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9a4.5 4.5 0 0 0 1 9z"/></svg></span><span><b>Nube y respaldo</b><small id="nube-state">Sin conectar</small></span><span class="chev">›</span></button></li>
+        </ul>
+        <p class="fine">Meta Diciembre guarda todo primero en tu iPhone, así funciona sin internet. Cuando hay conexión, lo copia a tu nube.</p>
+      </div>
+
+      <!-- Mi plan -->
+      <div class="view sub" id="sub-plan" hidden>
+        <div class="sub-head"><button type="button" class="back" data-back>‹ Más</button></div>
+        <div class="result-hero">
+          <p class="eyebrow">Tu meta diaria</p>
+          <p class="hero-num"><span id="c-target">2,200</span> <span class="unit">kcal</span></p>
+          <p class="hero-sub" id="c-sub">Bajas unos 0.7 kg por semana</p>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="k">Metabolismo basal</span><span class="v" id="c-bmr">1,896</span></div>
+          <div class="stat"><span class="k">Gasto diario</span><span class="v" id="c-tdee">2,939</span></div>
+          <div class="stat"><span class="k">Déficit diario</span><span class="v" id="c-def">739</span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><span class="k"><i class="dot p"></i>Proteína</span><span class="v"><span id="c-p">160</span> <small>g</small></span></div>
+          <div class="stat"><span class="k"><i class="dot c"></i>Carbos</span><span class="v"><span id="c-c">230</span> <small>g</small></span></div>
+          <div class="stat"><span class="k"><i class="dot f"></i>Grasa</span><span class="v"><span id="c-f">70</span> <small>g</small></span></div>
+        </div>
+        <div class="projection">
+          <p>Para el 31 de diciembre: <b id="c-dec">~83 kg</b></p>
+          <p id="c-goal-eta">Llegas a 75 kg cerca de abril de 2027.</p>
+        </div>
+        <form class="form" id="calc-form" autocomplete="off">
+          <div class="field full">
+            <span class="label">Ritmo</span>
+            <div class="seg" id="pace-seg">
+              <button type="button" id="pace-10" data-v="0.1" aria-pressed="false">Suave</button>
+              <button type="button" id="pace-20" data-v="0.2" aria-pressed="false">Normal</button>
+              <button type="button" id="pace-25" data-v="0.25" aria-pressed="true">Rápido</button>
+              <button type="button" id="pace-0" data-v="0" aria-pressed="false">Mantener</button>
+            </div>
+          </div>
+          <div class="field full">
+            <span class="label">Sexo</span>
+            <div class="seg" id="sex-seg">
+              <button type="button" id="sex-m" data-v="m" aria-pressed="true">Hombre</button>
+              <button type="button" id="sex-f" data-v="f" aria-pressed="false">Mujer</button>
+            </div>
+          </div>
+          <div class="field"><label for="f-age">Edad</label><div class="input-unit"><input id="f-age" type="number" inputmode="numeric" min="13" max="90" value="18"><span>años</span></div></div>
+          <div class="field"><label for="f-height">Estatura</label><div class="input-unit"><input id="f-height" type="number" inputmode="numeric" min="120" max="230" value="173"><span>cm</span></div></div>
+          <div class="field"><label for="f-weight">Peso actual</label><div class="input-unit"><input id="f-weight" type="number" inputmode="decimal" step="0.1" min="35" max="250" value="90"><span>kg</span></div></div>
+          <div class="field"><label for="f-goal">Peso meta</label><div class="input-unit"><input id="f-goal" type="number" inputmode="decimal" step="0.1" min="35" max="250" value="75"><span>kg</span></div></div>
+          <div class="field full">
+            <label for="f-activity">Actividad</label>
+            <select id="f-activity">
+              <option value="1.2">Casi no hago ejercicio</option>
+              <option value="1.375">Ejercicio 1 a 3 días por semana</option>
+              <option value="1.55">Ejercicio 3 a 5 días por semana</option>
+              <option value="1.725">Ejercicio 6 o 7 días por semana</option>
+              <option value="1.9">Entreno diario y trabajo físico</option>
+            </select>
+          </div>
+          <div class="field full"><label for="f-steps">Meta de pasos al día</label><div class="input-unit"><input id="f-steps" type="number" inputmode="numeric" step="500" min="2000" max="40000" value="10000"><span>pasos</span></div></div>
+        </form>
+        <p class="fine">Fórmula Mifflin-St Jeor: 10 × peso + 6.25 × estatura − 5 × edad + 5 (hombre) o − 161 (mujer), por tu nivel de actividad. “Rápido” resta 25 %, “Normal” 20 % y “Suave” 10 %. Proteína 1.8 g por kg para no perder músculo, grasa 0.8 g por kg y el resto en carbohidratos. Nunca baja de 1,500 kcal (hombre) o 1,200 (mujer). Cuando registras un peso nuevo, la meta se recalcula. Si pasan 2 semanas sin que baje tu peso ni tu cintura, resta 150 kcal.</p>
+      </div>
+
+      <!-- Cara -->
+      <div class="view sub" id="sub-cara" hidden>
+        <div class="sub-head"><button type="button" class="back" data-back>‹ Más</button></div>
+        <h2 class="h2">Rutina de cara con gua sha</h2>
+        <p class="lead">Hazla en la mañana, con la cara limpia. Dura unos 5 minutos. Presión ligera, la piedra casi plana contra la piel y siempre hacia afuera y hacia abajo, hacia el cuello.</p>
+        <ol class="face-steps">
+          <li><b>1. Prepara la piel</b><span>30 s</span><p>Unas gotas de aceite facial o sérum en cara y cuello para que la piedra deslice sin jalar.</p></li>
+          <li><b>2. Abre el cuello</b><span>1 min</span><p>De detrás de la oreja hacia abajo hasta la clavícula. 6 a 8 pasadas por lado. Aquí es donde se va el líquido.</p></li>
+          <li><b>3. Mandíbula</b><span>1 min</span><p>Con la muesca de la piedra, del centro del mentón hacia la oreja siguiendo el hueso. 8 a 10 pasadas por lado.</p></li>
+          <li><b>4. Debajo de la mandíbula</b><span>40 s</span><p>Del centro bajo el mentón hacia el ángulo de la mandíbula. 8 pasadas por lado.</p></li>
+          <li><b>5. Mejillas</b><span>1 min</span><p>Del lado de la nariz y la boca hacia la oreja, por debajo del pómulo. 8 pasadas por lado.</p></li>
+          <li><b>6. Ojeras y frente</b><span>40 s</span><p>Muy suave, del lagrimal hacia la sien. Frente del centro hacia las sienes. 5 pasadas por lado.</p></li>
+          <li><b>7. Cierra</b><span>30 s</span><p>Repite el paso 2 para bajar el líquido hacia el cuello.</p></li>
+          <li><b>Extra: retracción de mentón</b><span>3 × 10</span><p>Espalda recta, mete la barbilla hacia atrás (como haciendo papada) 3 segundos y suelta. Corrige la cabeza adelantada, que es lo que más “borra” la mandíbula en fotos.</p></li>
+        </ol>
+        <p class="callout">Lo honesto: el gua sha quita hinchazón por unas horas, no quema grasa ni cambia el hueso. La mandíbula se marca bajando grasa de todo el cuerpo; con 5 a 8 kg menos ya se nota. Ayuda mucho cenar con poca sal, no tomar alcohol, dormir 7 a 8 horas y tomar tus 3 litros de agua.</p>
+        <button type="button" class="btn primary wide" id="face-done">Hecha hoy</button>
+      </div>
+
+      <!-- Pasos -->
+      <div class="view sub" id="sub-pasos" hidden>
+        <div class="sub-head"><button type="button" class="back" data-back>‹ Más</button></div>
+        <h2 class="h2">Pasos con Atajos</h2>
+        <p class="lead">Una página web no puede leer la app Salud. Un atajo de iPhone sí: lee tus pasos de hoy y los manda a tu nube. Se arma una sola vez.</p>
+        <p class="notice err" id="pasos-needs-cloud" hidden>Primero conecta tu nube en Más → Nube y respaldo. El atajo necesita tu código.</p>
+        <ol class="steps">
+          <li><div><b>Crea el atajo</b>Abre la app Atajos, toca + y ponle de nombre <b>Pasos Meta</b> (exacto, así lo encuentra el botón de la app).</div></li>
+          <li><div><b>Busca tus pasos</b>Agrega la acción “Buscar muestras de salud”. Toca “Tipo” y elige <b>Pasos</b>. Agrega el filtro “Fecha de inicio” <b>es hoy</b>. En “Agrupar por” elige <b>Día</b>.</div></li>
+          <li><div><b>Súmalos</b>Agrega “Calcular estadísticas”, elige <b>Suma</b> de “Muestras de salud”.</div></li>
+          <li><div><b>Mándalos</b>Agrega “Obtener contenido de URL” y pega esta dirección:
+            <div class="copy"><code id="sc-url"></code><button type="button" class="btn small" data-copy="sc-url">Copiar</button></div>
+            <small style="margin-top:6px">Toca la flechita de la acción y cambia Método a <b>POST</b>.</small>
+            <small style="margin-top:6px">En Encabezados agrega dos:</small>
+            <div class="copy"><code id="sc-h1"><span class="lbl">Clave</span>apikey</code><button type="button" class="btn small" data-copy="sc-h1">Copiar</button></div>
+            <div class="copy"><code id="sc-h1v"><span class="lbl">Texto</span></code><button type="button" class="btn small" data-copy="sc-h1v">Copiar</button></div>
+            <div class="copy"><code id="sc-h2"><span class="lbl">Clave</span>Content-Type</code><button type="button" class="btn small" data-copy="sc-h2">Copiar</button></div>
+            <div class="copy"><code id="sc-h2v"><span class="lbl">Texto</span>application/json</code><button type="button" class="btn small" data-copy="sc-h2v">Copiar</button></div>
+            <small style="margin-top:6px">En Cuerpo de la solicitud elige <b>JSON</b> y agrega dos campos:</small>
+            <div class="copy"><code id="sc-b1"><span class="lbl">Texto · clave</span><span id="sc-clave">—</span></code><button type="button" class="btn small" data-copy="sc-clave">Copiar</button></div>
+            <div class="copy"><code><span class="lbl">Número · pasos</span>elige la variable “Estadísticas”</code><span></span></div>
+          </div></li>
+          <li><div><b>Pruébalo</b>Toca ▶︎. Si sale <code>"ok": true</code>, ya quedó. Regresa aquí y toca “Revisar mis pasos”.</div></li>
+          <li><div><b>Hazlo automático</b>En Atajos ve a Automatización → + → <b>Hora del día</b>. Pon 21:30, diario, “Ejecutar inmediatamente” y elige Pasos Meta. Puedes agregar otra a las 15:00.</div></li>
+        </ol>
+        <p class="callout">Si usas Apple Watch y ves el doble de pasos, en el paso 2 agrega el filtro “Fuente” es tu iPhone. El iPhone tiene que estar desbloqueado para leer Salud; si la automatización falla de noche, ponla a una hora en que uses el celular.</p>
+        <div class="duo">
+          <button type="button" class="btn" id="run-shortcut">Correr atajo</button>
+          <button type="button" class="btn primary" id="check-steps">Revisar mis pasos</button>
+        </div>
+        <p class="status" id="pasos-status" role="status"></p>
+      </div>
+
+      <!-- Avisos -->
+      <div class="view sub" id="sub-avisos" hidden>
+        <div class="sub-head"><button type="button" class="back" data-back>‹ Más</button></div>
+        <h2 class="h2">Avisos</h2>
+        <p class="lead">Una app web no puede mandar notificaciones con la app cerrada. Por eso tus avisos van al Calendario del iPhone, que sí te avisa a la hora exacta. Mientras tengas la app abierta, también te aviso aquí.</p>
+        <p class="next" id="next-rem">Próximo aviso: —</p>
+        <ul class="rem-list" id="rem-list"></ul>
+        <a class="btn primary wide" id="cal-link" href="#" target="_blank" rel="noopener" style="text-align:center;text-decoration:none;display:block;line-height:26px">Agregar al Calendario del iPhone</a>
+        <p class="status" id="cal-status" role="status"></p>
+        <p class="fine">Se abre una vista del calendario: toca “Agregar todo”. Si cambias horas o días, espera a que diga “Guardado en tu nube” y vuelve a tocar el botón; si te salen avisos repetidos, borra los viejos en Calendario.</p>
+      </div>
+
+      <!-- Fotos -->
+      <div class="view sub" id="sub-fotos" hidden>
+        <div class="sub-head"><button type="button" class="back" data-back>‹ Más</button></div>
+        <h2 class="h2">Fotos con IA</h2>
+        <p class="lead">Para calcular calorías de una foto, la app usa la API de Anthropic con tu propia clave. Se cobra a tu cuenta de la API, no a tu suscripción de Claude.</p>
+        <ol class="steps">
+          <li><div><b>Crea tu clave</b>Entra a <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>, agrega saldo (con 5 dólares te alcanzan cientos de fotos) y crea una API key.</div></li>
+          <li><div><b>Pégala aquí</b>
+            <div class="inline" style="margin-top:8px">
+              <input type="password" id="api-key" autocomplete="off" placeholder="sk-ant-..." aria-label="API key de Anthropic">
+              <button type="button" class="btn small" id="api-paste">Pegar</button>
+            </div>
+            <small style="margin-top:6px">Se guarda solo en este iPhone. No se sube a tu nube ni a GitHub.</small>
+          </div></li>
+        </ol>
+        <div class="field">
+          <label for="ai-model">Modelo</label>
+          <select id="ai-model">
+            <option value="claude-opus-5-5">Claude Opus 5.5: el más preciso, unos 2 a 3 centavos de dólar por foto</option>
+            <option value="claude-haiku-5-5">Claude Haiku 5.5: más rápido y barato, menos de 1 centavo por foto</option>
+          </select>
+        </div>
+        <div class="duo">
+          <button type="button" class="btn primary" id="api-save">Guardar</button>
+          <button type="button" class="btn" id="api-clear">Borrar clave</button>
+        </div>
+        <p class="status" id="api-status" role="status"></p>
+        <p class="fine">Con Opus la app activa el respaldo automático de modelo: si Opus no puede responder una foto, otro modelo de Claude la contesta en la misma llamada.</p>
+      </div>
+
+      <!-- Nube -->
+      <div class="view sub" id="sub-nube" hidden>
+        <div class="sub-head"><button type="button" class="back" data-back>‹ Más</button></div>
+        <h2 class="h2">Nube y respaldo</h2>
+        <p class="lead">Tu nube es un proyecto de Supabase en tu cuenta. Tu código es como una contraseña: con él se leen y guardan tus datos. No lo compartas.</p>
+        <div class="field">
+          <label for="clave-input">Tu código</label>
+          <div class="inline">
+            <input type="text" id="clave-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX">
+            <button type="button" class="btn small" id="clave-paste">Pegar</button>
+          </div>
+        </div>
+        <div class="duo">
+          <button type="button" class="btn primary" id="clave-connect">Conectar</button>
+          <button type="button" class="btn" id="sync-now">Sincronizar</button>
+        </div>
+        <p class="status" id="nube-status" role="status"></p>
+        <button type="button" class="btn wide" id="backup">Descargar respaldo</button>
+        <button type="button" class="btn wide" id="clave-forget">Desconectar este celular</button>
+        <p class="fine">Si la nube no se usa en 7 días, Supabase la pone en pausa (tus datos no se borran). El atajo de pasos diario la mantiene activa. Si se pausa, la app sigue guardando en tu iPhone y sube todo cuando vuelva.</p>
+      </div>
     </section>
   </main>
 </div>
 
 <nav class="tabs" aria-label="Secciones">
   <div class="tabs-inner">
-    <button class="tab" type="button" data-view="hoy" aria-current="page">
+    <button class="tab" type="button" data-tab="hoy" aria-current="page">
       <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 8 8"/></svg>Hoy
     </button>
-    <button class="tab" type="button" data-view="calcular">
-      <svg class="ic" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h2M14 12h2M8 16h2M14 16h2"/></svg>Calcular
+    <button class="tab" type="button" data-tab="entreno">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M3 10v4M6 7v10M18 7v10M21 10v4M6 12h12"/></svg>Entreno
     </button>
-    <button class="tab" type="button" data-view="peso">
-      <svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 10a5 5 0 0 1 7 0M12 10l1.5-1.5"/></svg>Peso
+    <button class="tab" type="button" data-tab="progreso">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M5 15l4-4 3 3 7-7"/></svg>Progreso
     </button>
-    <button class="tab" type="button" data-view="avisos">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>Avisos
+    <button class="tab" type="button" data-tab="mas">
+      <svg class="ic" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>Más
     </button>
   </div>
 </nav>
 
+<!-- Agregar comida -->
 <div class="backdrop" id="backdrop" hidden></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
   <div class="sheet-inner">
@@ -540,67 +830,97 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
       <button class="icon-btn" type="button" id="sheet-close" aria-label="Cerrar">×</button>
     </div>
     <div class="seg" id="mode-seg">
-      <button type="button" id="mode-foto" data-v="foto" aria-pressed="true">Foto</button>
-      <button type="button" id="mode-texto" data-v="texto" aria-pressed="false">Describir</button>
+      <button type="button" id="mode-lista" data-v="lista" aria-pressed="true">Lista</button>
+      <button type="button" id="mode-foto" data-v="foto" aria-pressed="false">Foto</button>
       <button type="button" id="mode-manual" data-v="manual" aria-pressed="false">Manual</button>
     </div>
-    <div class="field">
-      <span class="label">¿Qué comida es?</span>
-      <div class="seg" id="meal-seg">
-        <button type="button" id="meal-desayuno" data-v="desayuno" aria-pressed="false">Desayuno</button>
-        <button type="button" id="meal-comida" data-v="comida" aria-pressed="true">Comida</button>
-        <button type="button" id="meal-merienda" data-v="merienda" aria-pressed="false">Merienda</button>
-        <button type="button" id="meal-cena" data-v="cena" aria-pressed="false">Cena</button>
-      </div>
+    <div class="seg" id="meal-seg" role="group" aria-label="Comida del día">
+      <button type="button" id="meal-desayuno" data-v="desayuno" aria-pressed="false">Desayuno</button>
+      <button type="button" id="meal-comida" data-v="comida" aria-pressed="true">Comida</button>
+      <button type="button" id="meal-merienda" data-v="merienda" aria-pressed="false">Merienda</button>
+      <button type="button" id="meal-cena" data-v="cena" aria-pressed="false">Cena</button>
     </div>
 
-    <div id="pane-foto" class="view">
+    <div class="pane" id="pane-lista">
+      <input type="search" id="food-search" placeholder="Buscar: tacos, pollo, refresco…" autocomplete="off" aria-label="Buscar comida">
+      <div class="field">
+        <span class="label">Cantidad</span>
+        <div class="seg" id="qty-seg">
+          <button type="button" id="qty-05" data-v="0.5" aria-pressed="false">½</button>
+          <button type="button" id="qty-1" data-v="1" aria-pressed="true">1</button>
+          <button type="button" id="qty-15" data-v="1.5" aria-pressed="false">1½</button>
+          <button type="button" id="qty-2" data-v="2" aria-pressed="false">2</button>
+          <button type="button" id="qty-3" data-v="3" aria-pressed="false">3</button>
+        </div>
+      </div>
+      <div class="cats" id="cats"></div>
+      <div id="food-results"></div>
+    </div>
+
+    <div class="pane" id="pane-foto" hidden>
+      <p class="notice" id="foto-setup" hidden>Para usar fotos, pon tu API key en Más → Fotos con IA. <button type="button" class="btn small" data-go="fotos" style="margin-top:8px">Configurar</button></p>
       <label class="photo-drop" id="photo-drop" for="photo-input">
         <svg class="ic" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
-        <span id="photo-hint">Toca para tomar o elegir una foto de tu plato</span>
+        <span>Toca para tomar o elegir una foto de tu plato</span>
       </label>
       <input id="photo-input" type="file" accept="image/*">
       <div class="field">
         <label for="photo-note">Detalles (opcional)</label>
         <input id="photo-note" type="text" placeholder="Ej. con aceite, porción grande, sin tortillas">
       </div>
-      <button class="btn primary wide" type="button" id="analyze-foto">Calcular calorías</button>
-    </div>
-
-    <div id="pane-texto" class="view" hidden>
-      <div class="field">
-        <label for="food-text">¿Qué comiste?</label>
-        <textarea id="food-text" rows="3" placeholder="Ej. 3 tacos al pastor con piña y un vaso de horchata"></textarea>
+      <button class="btn primary wide" type="button" id="analyze">Calcular calorías</button>
+      <div class="ai-status" id="ai-status" hidden><span class="spinner"></span><span id="ai-status-text" style="flex:1">Claude está viendo tu foto…</span></div>
+      <p class="notice err" id="ai-error" hidden></p>
+      <div class="pane" id="ai-result" hidden>
+        <p class="fine" id="ai-note"></p>
+        <div class="ai-cols"><span class="sr">Incluir</span><span></span><span>kcal</span><span>Prot. g</span></div>
+        <div id="ai-items" class="pane" style="gap:8px"></div>
+        <div class="ai-total"><span>Total</span><span id="ai-total">0 kcal</span></div>
+        <button class="btn primary wide" type="button" id="ai-add">Agregar a mi día</button>
       </div>
-      <button class="btn primary wide" type="button" id="analyze-texto">Calcular calorías</button>
     </div>
 
-    <div id="pane-manual" class="view" hidden>
-      <div class="manual-grid">
-        <div class="field full"><label for="m-name">Alimento</label><input id="m-name" type="text" placeholder="Ej. Pechuga a la plancha 200 g"></div>
-        <div class="field"><label for="m-kcal">Calorías</label><div class="input-unit"><input id="m-kcal" type="number" inputmode="numeric" min="0"><span>kcal</span></div></div>
-        <div class="field"><label for="m-p">Proteína</label><div class="input-unit"><input id="m-p" type="number" inputmode="numeric" min="0"><span>g</span></div></div>
-        <div class="field"><label for="m-c">Carbohidratos</label><div class="input-unit"><input id="m-c" type="number" inputmode="numeric" min="0"><span>g</span></div></div>
-        <div class="field"><label for="m-f">Grasa</label><div class="input-unit"><input id="m-f" type="number" inputmode="numeric" min="0"><span>g</span></div></div>
+    <div class="pane" id="pane-manual" hidden>
+      <div class="form">
+        <div class="field full"><label for="mn-name">Alimento</label><input id="mn-name" type="text" placeholder="Ej. Pechuga a la plancha 200 g"></div>
+        <div class="field"><label for="mn-kcal">Calorías</label><div class="input-unit"><input id="mn-kcal" type="number" inputmode="numeric" min="0"><span>kcal</span></div></div>
+        <div class="field"><label for="mn-p">Proteína</label><div class="input-unit"><input id="mn-p" type="number" inputmode="numeric" min="0"><span>g</span></div></div>
+        <div class="field"><label for="mn-c">Carbohidratos</label><div class="input-unit"><input id="mn-c" type="number" inputmode="numeric" min="0"><span>g</span></div></div>
+        <div class="field"><label for="mn-f">Grasa</label><div class="input-unit"><input id="mn-f" type="number" inputmode="numeric" min="0"><span>g</span></div></div>
       </div>
       <button class="btn primary wide" type="button" id="manual-add">Agregar</button>
     </div>
+  </div>
+</div>
 
-    <p class="notice" id="ai-unavail" hidden>Claude no está disponible en esta vista, así que la foto y la descripción no funcionan aquí. Puedes registrar tu comida a mano.</p>
-
-    <div class="ai-status" id="ai-status" hidden>
-      <span class="spinner"></span><span id="ai-status-text">Analizando tu comida…</span>
-      <button class="btn" type="button" id="ai-stop">Detener</button>
+<!-- Pasos de hoy -->
+<div class="sheet" id="steps-sheet" role="dialog" aria-modal="true" aria-labelledby="steps-title" hidden>
+  <div class="sheet-inner">
+    <div class="grabber"></div>
+    <div class="sheet-head">
+      <h2 id="steps-title">Pasos de hoy</h2>
+      <button class="icon-btn" type="button" id="steps-close" aria-label="Cerrar">×</button>
     </div>
-    <p class="notice err" id="ai-error" hidden></p>
+    <button type="button" class="btn primary wide" id="steps-run">Actualizar desde Salud</button>
+    <p class="fine">Abre Atajos y corre “Pasos Meta”. Al regresar, la app trae tus pasos. ¿No lo tienes? Ve a Más → Pasos con Atajos.</p>
+    <form class="inline" id="steps-form" autocomplete="off">
+      <div class="field">
+        <label for="steps-input">O escríbelos</label>
+        <div class="input-unit"><input id="steps-input" type="number" inputmode="numeric" min="0" max="200000" placeholder="8000"><span>pasos</span></div>
+      </div>
+      <button type="submit" class="btn">Guardar</button>
+    </form>
+  </div>
+</div>
 
-    <div class="ai-result" id="ai-result" hidden>
-      <p class="ai-note" id="ai-note"></p>
-      <div class="ai-cols"><span class="sr">Incluir</span><span></span><span>kcal</span><span>Prot. g</span></div>
-      <div id="ai-items" class="ai-result"></div>
-      <div class="ai-total"><span>Total</span><span id="ai-total">0 kcal</span></div>
-      <button class="btn primary wide" type="button" id="ai-add">Agregar a mi día</button>
-    </div>
+<div class="timer" id="timer" role="timer" aria-live="polite" hidden>
+  <div class="timer-label" id="timer-label">Descanso</div>
+  <div class="timer-time" id="timer-time">1:30</div>
+  <div class="timer-next" id="timer-next"></div>
+  <div class="timer-actions">
+    <button type="button" id="timer-minus">−15 s</button>
+    <button type="button" id="timer-plus">+15 s</button>
+    <button type="button" id="timer-stop">Terminar</button>
   </div>
 </div>
 
@@ -610,11 +930,19 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
 (() => {
   'use strict';
 
+  // ---------- Configuración ----------
+  const SB_URL = 'https://qlzpfztvqectcbzzupph.supabase.co';
+  const SB_KEY = 'sb_publishable_5B7sbV5dDyCbwyoo5r3sKA_R-u6DoYF';
+  const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.131.0/+esm';
+  const SHORTCUT = 'Pasos Meta';
+
+  // ---------- Utilidades ----------
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const pad = n => String(n).padStart(2, '0');
   const fmt = n => Math.round(n).toLocaleString('es-MX');
   const fmt1 = n => (Math.round(n * 10) / 10).toFixed(1);
+  const trim0 = s => s.replace(/\.0$/, '');
   const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const parseKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
   const todayKey = () => keyOf(new Date());
@@ -622,21 +950,21 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
   const clone = v => JSON.parse(JSON.stringify(v));
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clampInt = (v, max = 5000) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(Math.max(n, 0), max) : 0; };
+  const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const MONTHS_LONG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
   const DAY_LETTER = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
   const DAY_SHORT = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-  const RRULE_DAY = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
   const ALL_DAYS = [1, 2, 3, 4, 5, 6, 0];
   const MEALS = [['desayuno', 'Desayuno'], ['comida', 'Comida'], ['merienda', 'Merienda'], ['cena', 'Cena']];
   const CUPS = 12; // 12 vasos de 250 ml = 3 L
+  const lastDays = n => Array.from({ length: n }, (_, i) => keyOf(new Date(Date.now() - (n - 1 - i) * DAY)));
 
-  // ---------- Datos iniciales (tus datos reales) ----------
-  const DEFAULT_PROFILE = { sex: 'm', age: 18, height: 173, weight: 90, goal: 75, activity: 1.55, pace: 0.2 };
+  // ---------- Datos fijos ----------
+  const DEFAULT_PROFILE = { sex: 'm', age: 18, height: 173, weight: 90, goal: 75, activity: 1.55, pace: 0.25, stepGoal: 10000 };
   const DEFAULT_WEIGHTS = { list: [{ date: '2026-10-20', kg: 90 }] };
   const DEFAULT_REMINDERS = {
-    syncedAt: null,
     list: [
       { id: 'peso', label: 'Pésate', note: 'En ayunas, después de ir al baño', time: '07:30', days: [1], on: true },
       { id: 'desayuno', label: 'Desayuno', note: 'Come y registra tu desayuno', time: '08:00', days: ALL_DAYS, on: true },
@@ -645,93 +973,297 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
       { id: 'merienda', label: 'Merienda', note: 'Yogur griego, fruta o atún', time: '17:30', days: ALL_DAYS, on: true },
       { id: 'entreno', label: 'Entrenar', note: 'Gym lunes, miércoles y viernes. Casa martes y jueves', time: '18:30', days: [1, 2, 3, 4, 5], on: true },
       { id: 'cena', label: 'Cena', note: 'Registra tu cena y revisa tu total del día', time: '20:30', days: ALL_DAYS, on: true },
+      { id: 'cara', label: 'Gua sha y pasos', note: 'Rutina de cara de 5 minutos y corre el atajo de pasos', time: '21:30', days: ALL_DAYS, on: true },
       { id: 'magnesio', label: 'Magnesio y a dormir', note: 'Toma tu glicinato de magnesio y deja el celular', time: '22:30', days: ALL_DAYS, on: true }
     ]
   };
 
-  const state = {
-    profile: clone(DEFAULT_PROFILE),
-    weights: clone(DEFAULT_WEIGHTS),
-    reminders: clone(DEFAULT_REMINDERS),
-    days: {}
-  };
+  // [nombre, porción, kcal, proteína, carbos, grasa, categoría] — valores aproximados por porción.
+  const FOODS = [
+    ['Huevo', '1 pieza', 72, 6, 0, 5, 'Proteína'],
+    ['Claras de huevo', '3 claras', 51, 11, 1, 0, 'Proteína'],
+    ['Pechuga de pollo a la plancha', '150 g', 250, 46, 0, 5, 'Proteína'],
+    ['Muslo de pollo con piel', '1 pieza', 230, 24, 0, 15, 'Proteína'],
+    ['Pollo rostizado', '¼ de pollo', 450, 45, 0, 29, 'Proteína'],
+    ['Bistec de res asado', '150 g', 300, 40, 0, 15, 'Proteína'],
+    ['Carne molida de res', '100 g cocida', 250, 26, 0, 17, 'Proteína'],
+    ['Atún en agua', '1 lata', 120, 26, 0, 1, 'Proteína'],
+    ['Salmón', '150 g', 310, 33, 0, 19, 'Proteína'],
+    ['Pescado blanco (tilapia)', '150 g', 190, 39, 0, 3, 'Proteína'],
+    ['Jamón de pavo', '2 rebanadas', 45, 7, 1, 2, 'Proteína'],
+    ['Queso panela', '50 g', 125, 9, 2, 9, 'Proteína'],
+    ['Queso Oaxaca', '30 g', 105, 7, 1, 8, 'Proteína'],
+    ['Yogur griego natural', '1 taza', 150, 20, 8, 4, 'Proteína'],
+    ['Leche entera', '1 vaso', 150, 8, 12, 8, 'Proteína'],
+    ['Leche descremada', '1 vaso', 85, 8, 12, 0, 'Proteína'],
+    ['Proteína en polvo (whey)', '1 scoop', 120, 24, 3, 2, 'Proteína'],
+    ['Frijoles de la olla', '½ taza', 115, 8, 20, 1, 'Proteína'],
+    ['Frijoles refritos', '½ taza', 180, 7, 20, 8, 'Proteína'],
+    ['Lentejas cocidas', '1 taza', 230, 18, 40, 1, 'Proteína'],
 
-  // ---------- Almacenamiento: tu cuenta (db) o este celular ----------
+    ['Taco al pastor', '1 pieza', 150, 8, 13, 7, 'Platillos'],
+    ['Taco de bistec', '1 pieza', 160, 10, 13, 7, 'Platillos'],
+    ['Taco de suadero', '1 pieza', 190, 9, 13, 11, 'Platillos'],
+    ['Taco de carnitas', '1 pieza', 190, 10, 13, 11, 'Platillos'],
+    ['Taco de canasta', '1 pieza', 140, 4, 15, 7, 'Platillos'],
+    ['Quesadilla de maíz con queso', '1 pieza', 200, 9, 15, 11, 'Platillos'],
+    ['Quesadilla de harina con queso', '1 pieza', 300, 12, 25, 16, 'Platillos'],
+    ['Gordita de chicharrón', '1 pieza', 350, 10, 35, 19, 'Platillos'],
+    ['Sope con frijol y queso', '1 pieza', 230, 7, 28, 10, 'Platillos'],
+    ['Tamal de pollo', '1 pieza', 280, 9, 30, 14, 'Platillos'],
+    ['Torta de jamón', '1 pieza', 450, 20, 50, 18, 'Platillos'],
+    ['Torta de milanesa', '1 pieza', 700, 32, 65, 33, 'Platillos'],
+    ['Enchiladas verdes de pollo', '3 piezas', 480, 28, 40, 22, 'Platillos'],
+    ['Chilaquiles con pollo', '1 plato', 550, 25, 55, 25, 'Platillos'],
+    ['Chilaquiles con huevo', '1 plato', 600, 20, 55, 32, 'Platillos'],
+    ['Huevos a la mexicana', '2 huevos', 200, 13, 4, 15, 'Platillos'],
+    ['Huevos con jamón', '2 huevos', 230, 17, 2, 17, 'Platillos'],
+    ['Pozole rojo', '1 plato', 400, 25, 40, 14, 'Platillos'],
+    ['Caldo de pollo con verduras', '1 plato', 250, 25, 15, 9, 'Platillos'],
+    ['Tostada de tinga', '1 pieza', 220, 12, 18, 11, 'Platillos'],
+    ['Burrito de carne y frijoles', '1 pieza', 550, 28, 55, 22, 'Platillos'],
+    ['Flautas con crema', '3 piezas', 500, 18, 40, 30, 'Platillos'],
+    ['Milanesa de pollo empanizada', '1 pieza', 400, 30, 20, 22, 'Platillos'],
+    ['Elote con mayonesa y queso', '1 pieza', 250, 6, 30, 13, 'Platillos'],
+    ['Esquites', '1 vaso mediano', 300, 7, 35, 15, 'Platillos'],
+    ['Hamburguesa sencilla', '1 pieza', 500, 25, 40, 26, 'Platillos'],
+    ['Pizza de pepperoni', '1 rebanada grande', 310, 13, 35, 13, 'Platillos'],
+    ['Hot dog', '1 pieza', 300, 11, 24, 18, 'Platillos'],
+    ['Sushi (rollo)', '8 piezas', 450, 15, 65, 14, 'Platillos'],
+    ['Sopa instantánea', '1 vaso', 300, 6, 40, 13, 'Platillos'],
+
+    ['Tortilla de maíz', '1 pieza', 60, 2, 12, 1, 'Carbos'],
+    ['Tortilla de harina', '1 pieza', 140, 4, 22, 4, 'Carbos'],
+    ['Arroz blanco', '1 taza', 205, 4, 45, 0, 'Carbos'],
+    ['Arroz a la mexicana', '1 taza', 260, 5, 45, 6, 'Carbos'],
+    ['Pasta cocida', '1 taza', 220, 8, 43, 1, 'Carbos'],
+    ['Papa cocida', '1 mediana', 150, 4, 34, 0, 'Carbos'],
+    ['Papas fritas', 'porción mediana', 360, 4, 45, 17, 'Carbos'],
+    ['Pan de caja blanco', '1 rebanada', 75, 3, 14, 1, 'Carbos'],
+    ['Pan integral', '1 rebanada', 70, 4, 12, 1, 'Carbos'],
+    ['Bolillo', '1 pieza', 220, 7, 44, 2, 'Carbos'],
+    ['Concha', '1 pieza', 350, 6, 50, 14, 'Carbos'],
+    ['Avena con agua', '1 taza', 150, 5, 27, 3, 'Carbos'],
+    ['Avena con leche', '1 taza', 270, 11, 38, 8, 'Carbos'],
+    ['Cereal azucarado con leche', '1 tazón', 280, 8, 50, 5, 'Carbos'],
+    ['Galletas Marías', '5 piezas', 110, 2, 19, 3, 'Carbos'],
+
+    ['Plátano', '1 mediano', 105, 1, 27, 0, 'Fruta y verdura'],
+    ['Manzana', '1 mediana', 95, 1, 25, 0, 'Fruta y verdura'],
+    ['Naranja', '1 pieza', 62, 1, 15, 0, 'Fruta y verdura'],
+    ['Papaya', '1 taza', 62, 1, 16, 0, 'Fruta y verdura'],
+    ['Mango', '1 pieza', 200, 3, 50, 1, 'Fruta y verdura'],
+    ['Fresas', '1 taza', 50, 1, 12, 0, 'Fruta y verdura'],
+    ['Sandía', '1 taza', 46, 1, 12, 0, 'Fruta y verdura'],
+    ['Ensalada verde sin aderezo', '1 plato', 50, 2, 9, 1, 'Fruta y verdura'],
+    ['Brócoli cocido', '1 taza', 55, 4, 11, 1, 'Fruta y verdura'],
+    ['Verduras al vapor', '1 taza', 60, 3, 12, 0, 'Fruta y verdura'],
+    ['Aguacate', '½ pieza', 120, 2, 6, 11, 'Fruta y verdura'],
+    ['Guacamole', '¼ taza', 100, 1, 5, 9, 'Fruta y verdura'],
+
+    ['Refresco de cola', '600 ml', 252, 0, 63, 0, 'Bebidas'],
+    ['Refresco de cola', 'lata 355 ml', 150, 0, 39, 0, 'Bebidas'],
+    ['Refresco sin azúcar', '600 ml', 0, 0, 0, 0, 'Bebidas'],
+    ['Agua de horchata', '1 vaso', 200, 2, 40, 4, 'Bebidas'],
+    ['Agua de jamaica con azúcar', '1 vaso', 120, 0, 30, 0, 'Bebidas'],
+    ['Jugo de naranja', '1 vaso', 110, 2, 26, 1, 'Bebidas'],
+    ['Café americano sin azúcar', '1 taza', 5, 0, 1, 0, 'Bebidas'],
+    ['Café con leche y azúcar', '1 taza', 110, 4, 15, 4, 'Bebidas'],
+    ['Frappé de café', 'grande', 400, 6, 65, 13, 'Bebidas'],
+    ['Licuado de plátano con leche', '1 vaso', 280, 10, 45, 8, 'Bebidas'],
+    ['Bebida energética', '1 lata', 110, 0, 28, 0, 'Bebidas'],
+    ['Cerveza', '1 lata', 150, 2, 13, 0, 'Bebidas'],
+
+    ['Cacahuates', '1 puño (30 g)', 170, 7, 5, 14, 'Snacks y extras'],
+    ['Almendras', '1 puño (30 g)', 170, 6, 6, 15, 'Snacks y extras'],
+    ['Crema de cacahuate', '1 cucharada', 95, 4, 3, 8, 'Snacks y extras'],
+    ['Barra de proteína', '1 pieza', 200, 20, 22, 7, 'Snacks y extras'],
+    ['Papitas', 'bolsa 45 g', 240, 3, 23, 15, 'Snacks y extras'],
+    ['Galletas de chocolate', '1 paquete', 200, 2, 28, 9, 'Snacks y extras'],
+    ['Chocolate', 'barra chica', 210, 3, 24, 12, 'Snacks y extras'],
+    ['Helado', '1 bola', 140, 3, 16, 7, 'Snacks y extras'],
+    ['Gelatina de agua', '1 vaso', 80, 2, 19, 0, 'Snacks y extras'],
+    ['Arroz con leche', '1 taza', 300, 7, 52, 7, 'Snacks y extras'],
+    ['Aceite', '1 cucharada', 120, 0, 0, 14, 'Snacks y extras'],
+    ['Mayonesa', '1 cucharada', 90, 0, 0, 10, 'Snacks y extras'],
+    ['Crema', '1 cucharada', 50, 1, 1, 5, 'Snacks y extras'],
+    ['Salsa roja o verde', '2 cucharadas', 10, 0, 2, 0, 'Snacks y extras'],
+    ['Azúcar', '1 cucharadita', 16, 0, 4, 0, 'Snacks y extras']
+  ].map(([name, portion, kcal, p, c, f, cat]) => ({ name, portion, kcal, p, c, f, cat }));
+  const CATS = ['Recientes', 'Proteína', 'Platillos', 'Carbos', 'Fruta y verdura', 'Bebidas', 'Snacks y extras'];
+
+  const TREADMILL = 'Al final: 10 a 15 min de caminadora inclinada (inclinación 8 a 12, paso rápido). Es lo que más acelera la quema de grasa sin cansarte para mañana.';
+  const PLANS = {
+    torsoA: { name: 'Torso A', place: 'Gym', rest: 90, finisher: TREADMILL, ex: [
+      { id: 'press-banca', name: 'Press banca', sets: 4, target: '6–10', kind: 'kg' },
+      { id: 'remo-barra', name: 'Remo con barra', sets: 4, target: '8–10', kind: 'kg' },
+      { id: 'press-militar', name: 'Press militar con mancuernas', sets: 3, target: '8–12', kind: 'kg' },
+      { id: 'jalon', name: 'Jalón al pecho', sets: 3, target: '10–12', kind: 'kg' },
+      { id: 'laterales', name: 'Elevaciones laterales', sets: 4, target: '12–15', kind: 'kg' },
+      { id: 'curl-biceps', name: 'Curl de bíceps', sets: 3, target: '12', kind: 'kg' },
+      { id: 'ext-triceps', name: 'Extensión de tríceps', sets: 3, target: '12', kind: 'kg' }
+    ] },
+    piernaCasa: { name: 'Pierna y abdomen', place: 'Casa', rest: 45, finisher: 'Después: 20 min de caminata rápida.', ex: [
+      { id: 'sentadilla-libre', name: 'Sentadillas', sets: 4, target: '20', kind: 'reps' },
+      { id: 'zancadas', name: 'Zancadas', sets: 4, target: '12 por pierna', kind: 'reps' },
+      { id: 'puente', name: 'Puente de glúteo', sets: 4, target: '20', kind: 'reps' },
+      { id: 'pared', name: 'Sentadilla en pared', sets: 4, target: '45 s', kind: 'seg' },
+      { id: 'plancha', name: 'Plancha', sets: 4, target: '45 s', kind: 'seg' },
+      { id: 'bicicleta', name: 'Crunch bicicleta', sets: 4, target: '20', kind: 'reps' },
+      { id: 'elev-piernas', name: 'Elevaciones de piernas acostado', sets: 4, target: '15', kind: 'reps' }
+    ] },
+    torsoB: { name: 'Torso B', place: 'Gym', rest: 90, finisher: TREADMILL, ex: [
+      { id: 'press-inclinado', name: 'Press inclinado con mancuernas', sets: 4, target: '8–12', kind: 'kg' },
+      { id: 'dominadas', name: 'Dominadas o jalón', sets: 4, target: 'máx. (0 kg si son dominadas)', kind: 'kg' },
+      { id: 'remo-mancuerna', name: 'Remo con mancuerna', sets: 3, target: '10–12', kind: 'kg' },
+      { id: 'laterales', name: 'Elevaciones laterales', sets: 4, target: '12–15', kind: 'kg' },
+      { id: 'face-pulls', name: 'Face pulls', sets: 3, target: '15', kind: 'kg' },
+      { id: 'fondos', name: 'Fondos o press cerrado', sets: 3, target: '10', kind: 'kg' },
+      { id: 'curl-martillo', name: 'Curl martillo', sets: 3, target: '12', kind: 'kg' }
+    ] },
+    circuito: { name: 'Circuito', place: 'Casa', rest: 0, finisher: 'Después: 20 min de caminata.',
+      circuit: { rounds: 5, work: 40, rest: 20, moves: ['Jumping jacks', 'Flexiones', 'Mountain climbers', 'Sentadilla con salto', 'Plancha lateral', 'Abdominales'] } },
+    piernaGym: { name: 'Pierna', place: 'Gym', rest: 120, finisher: TREADMILL, ex: [
+      { id: 'sentadilla', name: 'Sentadilla con barra', sets: 4, target: '6–10', kind: 'kg' },
+      { id: 'peso-muerto-rumano', name: 'Peso muerto rumano', sets: 3, target: '8–10', kind: 'kg' },
+      { id: 'prensa', name: 'Prensa', sets: 3, target: '10–12', kind: 'kg' },
+      { id: 'curl-femoral', name: 'Curl femoral', sets: 3, target: '12', kind: 'kg' },
+      { id: 'pantorrilla', name: 'Pantorrilla', sets: 4, target: '15', kind: 'kg' },
+      { id: 'elev-colgado', name: 'Elevaciones de piernas colgado', sets: 3, target: '12', kind: 'reps' }
+    ] },
+    caminar: { name: 'Caminata larga', place: 'Fuera', rest: 0, cardio: '45 a 60 min a paso rápido. Cuenta para tus pasos.' },
+    descanso: { name: 'Descanso', place: 'Libre', rest: 0, cardio: 'Descansa. Si quieres, camina tranquilo 20 a 30 min y haz tu rutina de cara.' }
+  };
+  const WEEK_PLAN = { 1: 'torsoA', 2: 'piernaCasa', 3: 'torsoB', 4: 'circuito', 5: 'piernaGym', 6: 'caminar', 0: 'descanso' };
+
+  // ---------- Almacenamiento local + nube ----------
   const LS = {
-    get(k) { try { const v = localStorage.getItem('md:' + k); return v ? JSON.parse(v) : null; } catch { return null; } },
-    set(k, v) { try { localStorage.setItem('md:' + k, JSON.stringify(v)); } catch { /* sin almacenamiento */ } }
+    get(k) { try { const v = localStorage.getItem('md3:' + k); return v == null ? null : JSON.parse(v); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem('md3:' + k, JSON.stringify(v)); } catch { /* almacenamiento lleno o bloqueado */ } },
+    del(k) { try { localStorage.removeItem('md3:' + k); } catch { /* sin almacenamiento */ } }
   };
-  const Store = {
-    db: null, base: null, chains: {},
-    async connect() {
-      if (!window.claude || typeof window.claude.use !== 'function') return false;
-      try {
-        const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
-        if (!db || !user) return false;
-        const id = await user.id();
-        if (!id) return false;
-        this.db = db; this.base = 'data/users/' + id;
-        return true;
-      } catch { return false; }
+  const store = {
+    data: {},
+    dirty: new Set(),
+    settings: {},
+    init() {
+      this.settings = LS.get('_settings') || {};
+      this.dirty = new Set(LS.get('_dirty') || []);
+      (LS.get('_keys') || []).forEach(k => { const v = LS.get('k:' + k); if (v != null) this.data[k] = v; });
     },
-    // undefined = error, null = no existe
-    async getRemote(k) {
-      if (!this.db) return undefined;
-      try {
-        const s = await this.db.doc(this.base + '/' + k).get();
-        return s.exists ? clone(s.data()) : null;
-      } catch { return undefined; }
+    get(k) { return this.data[k]; },
+    put(k, v, { sync: doSync = true } = {}) {
+      this.data[k] = v;
+      LS.set('k:' + k, v);
+      LS.set('_keys', Object.keys(this.data));
+      if (doSync && k !== 'pasos') { this.dirty.add(k); LS.set('_dirty', [...this.dirty]); sync.schedule(); }
     },
-    put(k, v) {
-      LS.set(k, v);
-      if (!this.db) return;
-      const body = clone(v);
-      this.chains[k] = (this.chains[k] || Promise.resolve())
-        .then(() => this.db.doc(this.base + '/' + k).set(body))
-        .catch(() => setSyncChip('error'));
-    }
+    saveSettings() { LS.set('_settings', this.settings); }
   };
 
-  const pending = {};
-  function save(k, getter, ms = 0) {
-    clearTimeout(pending[k]?.t);
-    const run = () => { delete pending[k]; Store.put(k, getter()); };
-    pending[k] = { run, t: setTimeout(run, ms) };
-  }
-  function flush() { Object.values(pending).forEach(p => { clearTimeout(p.t); p.run(); }); }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); else renderAll(); });
-  window.addEventListener('pagehide', flush);
-
-  function applyKey(k, v) {
-    if (!v || typeof v !== 'object') return;
-    if (k === 'profile') state.profile = { ...DEFAULT_PROFILE, ...v };
-    else if (k === 'weights' && Array.isArray(v.list) && v.list.length) state.weights = { list: v.list };
-    else if (k === 'reminders' && Array.isArray(v.list)) state.reminders = { syncedAt: v.syncedAt || null, list: v.list };
-    else if (k.startsWith('d-')) state.days[k.slice(2)] = { date: k.slice(2), entries: Array.isArray(v.entries) ? v.entries : [], water: clampInt(v.water, CUPS) };
-  }
-  const lastDays = n => Array.from({ length: n }, (_, i) => keyOf(new Date(Date.now() - (n - 1 - i) * DAY)));
-  const allKeys = () => ['profile', 'weights', 'reminders', ...lastDays(7).map(d => 'd-' + d)];
-
-  function loadLocal() { allKeys().forEach(k => applyKey(k, LS.get(k))); }
-  async function loadKey(k) {
-    const remote = await Store.getRemote(k);
-    if (remote) { applyKey(k, remote); LS.set(k, remote); }
-    else if (remote === null) { const local = LS.get(k); if (local) Store.put(k, local); }
+  async function rpc(fn, body) {
+    let res;
+    try {
+      res = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+        method: 'POST',
+        headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } catch (e) { const err = new Error('sin_conexion'); err.network = true; throw err; }
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch { /* respuesta no JSON */ }
+    if (!res.ok) { const err = new Error((json && json.message) || 'HTTP ' + res.status); err.code = json && json.code; err.status = res.status; throw err; }
+    return json;
   }
 
-  function getDay(date) {
-    return state.days[date] || (state.days[date] = { date, entries: [], water: 0 });
-  }
-  const saveDay = (date, ms = 0) => save('d-' + date, () => getDay(date), ms);
-  const saveProfile = (ms = 0) => save('profile', () => state.profile, ms);
-  const saveWeights = () => save('weights', () => state.weights);
-  const saveReminders = (ms = 0) => save('reminders', () => state.reminders, ms);
+  const sync = {
+    state: 'local', timer: null, busy: false, again: false,
+    schedule(ms = 1200) { clearTimeout(this.timer); this.timer = setTimeout(() => this.run(), ms); },
+    async run() {
+      const clave = store.settings.clave;
+      if (!clave) { this.set('local'); return; }
+      if (this.busy) { this.again = true; return; }
+      this.busy = true;
+      try {
+        await this.pull(clave);
+        await this.push(clave);
+        afterFirstPull();
+        this.set(store.dirty.size ? 'saving' : 'ok');
+      } catch (e) {
+        this.set(e.network ? 'offline' : e.code === '28000' ? 'badkey' : 'error');
+      } finally {
+        this.busy = false;
+        if (this.again) { this.again = false; this.schedule(300); }
+      }
+    },
+    async pull(clave) {
+      let since = store.settings.lastPull || null;
+      let changed = false;
+      for (let n = 0; n < 30; n++) {
+        const rows = await rpc('md_since', { clave, desde: since });
+        for (const r of rows || []) {
+          if (!store.dirty.has(r.key)) { store.put(r.key, r.value, { sync: false }); changed = true; }
+          since = r.updated_at;
+        }
+        if (!rows || rows.length < 1000) break;
+      }
+      store.settings.lastPull = since;
+      store.settings.pulledOnce = true;
+      store.saveSettings();
+      if (changed) renderAll();
+    },
+    async push(clave) {
+      const keys = [...store.dirty].filter(k => k !== 'pasos' && store.data[k] != null);
+      for (let i = 0; i < keys.length; i += 50) {
+        const chunk = keys.slice(i, i + 50);
+        const sent = chunk.map(k => JSON.stringify(store.data[k]));
+        this.set('saving');
+        await rpc('md_put', { clave, items: chunk.map((k, j) => ({ key: k, value: JSON.parse(sent[j]) })) });
+        chunk.forEach((k, j) => { if (JSON.stringify(store.data[k]) === sent[j]) store.dirty.delete(k); });
+        LS.set('_dirty', [...store.dirty]);
+      }
+      store.dirty.forEach(k => { if (store.data[k] == null || k === 'pasos') store.dirty.delete(k); });
+      LS.set('_dirty', [...store.dirty]);
+    },
+    set(s) { this.state = s; renderSyncChip(); }
+  };
 
-  function setSyncChip(mode) {
+  function renderSyncChip() {
     const chip = $('#sync-chip');
-    chip.classList.toggle('cloud', mode === true);
-    chip.textContent = mode === true ? 'Guardado en tu cuenta' : mode === 'error' ? 'No se pudo guardar en tu cuenta; quedó en este celular' : 'Guardado en este celular';
+    const s = sync.state;
+    const txt = {
+      local: 'Solo en este celular', ok: 'Guardado en tu nube', saving: 'Guardando en tu nube…',
+      offline: 'Sin internet: se guarda en el celular', badkey: 'Código de nube incorrecto', error: 'La nube no responde: se guarda en el celular'
+    }[s];
+    chip.textContent = txt;
+    chip.className = 'sync-chip ' + (s === 'ok' ? 'ok' : s === 'badkey' || s === 'error' ? 'err' : '');
+    $('#nube-state').textContent = store.settings.clave ? txt : 'Sin conectar';
+    $('#cloud-banner').hidden = !!store.settings.clave;
+    const cal = $('#cal-status');
+    if (cal && currentSub === 'avisos') cal.textContent = store.settings.clave ? txt : 'Conecta tu nube para mandar los avisos al Calendario.';
   }
+
+  // Después de la primera descarga guardo la zona horaria, así el atajo sabe qué día es "hoy".
+  function afterFirstPull() {
+    let tz = '';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* sin Intl */ }
+    const p = profile();
+    if (tz && p.tz !== tz) store.put('profile', { ...p, tz });
+  }
+
+  // ---------- Lecturas ----------
+  const profile = () => ({ ...DEFAULT_PROFILE, ...(store.get('profile') || {}) });
+  const weights = () => { const w = store.get('weights'); return w && Array.isArray(w.list) && w.list.length ? w : clone(DEFAULT_WEIGHTS); };
+  const reminders = () => { const r = store.get('reminders'); return r && Array.isArray(r.list) ? r : clone(DEFAULT_REMINDERS); };
+  const pasosMap = () => store.get('pasos') || {};
+  function getDay(date) {
+    const v = store.get('d-' + date);
+    return v ? { date, entries: [], water: 0, face: false, ...v } : { date, entries: [], water: 0, face: false };
+  }
+  const saveDay = (day, ms = 0) => { store.data['d-' + day.date] = day; debounce('d-' + day.date, () => store.put('d-' + day.date, day), ms); };
+  const timers = {};
+  function debounce(k, fn, ms) { clearTimeout(timers[k]); if (!ms) { fn(); return; } timers[k] = setTimeout(fn, ms); }
 
   // ---------- Cálculo ----------
   function calc(p) {
@@ -739,21 +1271,20 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
     const tdee = bmr * p.activity;
     const floor = p.sex === 'm' ? 1500 : 1200;
     const target = Math.max(floor, Math.round(tdee * (1 - p.pace) / 50) * 50);
-    const protein = Math.round(p.weight * 1.7 / 5) * 5;
+    const protein = Math.round(p.weight * 1.8 / 5) * 5;
     const fat = Math.round(p.weight * 0.8 / 5) * 5;
     const carbs = Math.max(0, Math.round((target - protein * 4 - fat * 9) / 4 / 5) * 5);
     const deficit = Math.max(0, tdee - target);
-    const kgPerWeek = deficit * 7 / 7700;
-    return { bmr, tdee, target, protein, fat, carbs, deficit, kgPerWeek, floored: target === floor && tdee * (1 - p.pace) < floor };
+    return { bmr, tdee, target, protein, fat, carbs, deficit, kgPerWeek: deficit * 7 / 7700, floored: tdee * (1 - p.pace) < floor };
   }
-  function sortedWeights() { return [...state.weights.list].sort((a, b) => a.date < b.date ? -1 : 1); }
+  const sortedWeights = () => [...weights().list].sort((a, b) => a.date < b.date ? -1 : 1);
   function endOfYear() {
     const now = new Date();
     const dec = new Date(now.getFullYear(), 11, 31);
     return now > dec ? new Date(now.getFullYear() + 1, 11, 31) : dec;
   }
   function projection() {
-    const c = calc(state.profile);
+    const c = calc(profile());
     const ws = sortedWeights();
     const last = ws[ws.length - 1];
     const lastDate = parseKey(last.date);
@@ -761,46 +1292,57 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
     const weeks = Math.max(0, (end - lastDate) / DAY / 7);
     return { c, last, lastDate, end, dec: last.kg - weeks * c.kgPerWeek };
   }
+  const totals = entries => entries.reduce((a, e) => ({ kcal: a.kcal + (e.kcal || 0), p: a.p + (e.p || 0), c: a.c + (e.c || 0), f: a.f + (e.f || 0) }), { kcal: 0, p: 0, c: 0, f: 0 });
 
-  // ---------- Encabezado y pestañas ----------
-  let currentView = 'hoy';
+  // ---------- Navegación ----------
+  let currentView = 'hoy', currentSub = null;
+  const TITLES = { hoy: 'Hoy', entreno: 'Entreno', progreso: 'Progreso', mas: 'Más' };
+  const SUB_TITLES = { plan: 'Mi plan', cara: 'Cara', pasos: 'Pasos', avisos: 'Avisos', fotos: 'Fotos', nube: 'Nube' };
+  function showView(name, sub = null) {
+    if (!TITLES[name]) name = 'hoy';
+    currentView = name;
+    currentSub = name === 'mas' ? sub : null;
+    $$('main > .view').forEach(v => { v.hidden = v.id !== 'v-' + name; });
+    $$('.tab').forEach(t => { if (t.dataset.tab === name) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
+    $('#mas-menu').hidden = !!currentSub;
+    $$('#v-mas .sub').forEach(s => { s.hidden = s.id !== 'sub-' + currentSub; });
+    $('#view-title').textContent = currentSub ? SUB_TITLES[currentSub] : TITLES[name];
+    try { history.replaceState(null, '', '#' + (currentSub || name)); } catch { /* sin historial */ }
+    window.scrollTo(0, 0);
+    renderView();
+  }
+  $$('.tab').forEach(t => t.addEventListener('click', () => showView(t.dataset.tab)));
+  document.addEventListener('click', e => {
+    const go = e.target.closest('[data-go]');
+    if (go) { closeSheets(); showView('mas', go.dataset.go); return; }
+    const tab = e.target.closest('[data-tab]:not(.tab)');
+    if (tab) { showView(tab.dataset.tab); return; }
+    if (e.target.closest('[data-back]')) showView('mas');
+  });
+
   function renderHeader() {
     const now = new Date();
     $('#today-label').textContent = now.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     $('#days-left').textContent = Math.max(0, Math.round((endOfYear() - today) / DAY));
   }
-  function showView(name) {
-    if (!$('#v-' + name)) name = 'hoy';
-    currentView = name;
-    $$('main .view').forEach(v => { v.hidden = v.id !== 'v-' + name; });
-    $$('.tab').forEach(t => { if (t.dataset.view === name) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
-    $('#view-title').textContent = $('#v-' + name).dataset.title;
-    try { history.replaceState(null, '', '#' + name); } catch { /* sin historial */ }
-    window.scrollTo(0, 0);
-    renderView();
-  }
-  $$('.tab').forEach(t => t.addEventListener('click', () => showView(t.dataset.view)));
-
   function renderView() {
     if (currentView === 'hoy') renderHoy();
-    else if (currentView === 'calcular') renderCalc();
-    else if (currentView === 'peso') renderPeso();
-    else renderAvisos();
+    else if (currentView === 'entreno') renderEntreno();
+    else if (currentView === 'progreso') renderProgreso();
+    else renderMas();
   }
-  function renderAll() { renderHeader(); renderView(); }
+  function renderAll() { renderHeader(); renderView(); renderSyncChip(); }
 
   // ---------- Hoy ----------
-  const totals = entries => entries.reduce((a, e) => ({ kcal: a.kcal + (e.kcal || 0), p: a.p + (e.p || 0), c: a.c + (e.c || 0), f: a.f + (e.f || 0) }), { kcal: 0, p: 0, c: 0, f: 0 });
-  let weekSel = null;
-
+  let kweekSel = null;
   function renderHoy() {
-    const c = calc(state.profile);
+    const p = profile();
+    const c = calc(p);
     const day = getDay(todayKey());
     const t = totals(day.entries);
-    const pct = Math.min(t.kcal / c.target, 1) * 100;
     const ring = $('#ring-fill');
-    ring.setAttribute('stroke-dasharray', `${pct} 100`);
+    ring.setAttribute('stroke-dasharray', `${Math.min(t.kcal / c.target, 1) * 100} 100`);
     ring.classList.toggle('over', t.kcal > c.target);
     ring.style.opacity = t.kcal > 0 ? '1' : '0';
     $('#kcal-eaten').textContent = fmt(t.kcal);
@@ -813,22 +1355,32 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
       $('#b-' + m).style.width = Math.min(t[m] / Math.max(goal, 1), 1) * 100 + '%';
     });
 
-    // Agua
-    const cups = $('#cups');
-    cups.innerHTML = Array.from({ length: CUPS }, (_, i) =>
-      `<button type="button" class="cup ${i < day.water ? 'on' : ''}" data-i="${i}" aria-label="${i + 1} ${i ? 'vasos' : 'vaso'}" aria-pressed="${i < day.water}"></button>`).join('');
-    $('#water-label').textContent = `${fmt1(day.water * 0.25).replace('.0', '')} de 3 L`;
+    const steps = pasosMap()[todayKey()] || 0;
+    $('#steps-now').textContent = fmt(steps);
+    $('#steps-goal').textContent = `de ${fmt(p.stepGoal)}`;
+    $('#steps-bar').style.width = Math.min(steps / p.stepGoal, 1) * 100 + '%';
+    $('#steps-bar').classList.toggle('done', steps >= p.stepGoal);
 
-    // Comidas
+    const w = getWorkout(todayKey());
+    const plan = PLANS[w.plan];
+    const prog = workoutProgress(w);
+    $('#wk-name').textContent = plan.name;
+    $('#wk-sub').textContent = w.done ? 'Hecho ✓' : prog.total ? `${plan.place} · ${prog.done} de ${prog.total}` : plan.place;
+    $('#workout-tile').classList.toggle('done', !!w.done);
+
+    $('#cups').innerHTML = Array.from({ length: CUPS }, (_, i) =>
+      `<button type="button" class="cup ${i < day.water ? 'on' : ''}" data-i="${i}" aria-label="${i + 1} ${i ? 'vasos' : 'vaso'}" aria-pressed="${i < day.water}"></button>`).join('');
+    $('#water-label').textContent = `${day.water * 0.25} de 3 L`;
+    $('#face-tick').setAttribute('aria-pressed', String(!!day.face));
+
     const meals = $('#meals');
     if (!day.entries.length) {
-      meals.innerHTML = `<div class="empty"><b>Todavía no registras nada hoy.</b>Tómale foto a tu primer plato o escribe lo que comiste y Claude calcula las calorías.</div>`;
+      meals.innerHTML = `<div class="empty"><b>Todavía no registras nada hoy.</b>Toca Lista para elegir de más de 100 comidas, o Foto para que Claude calcule tu plato.</div>`;
     } else {
       meals.innerHTML = MEALS.map(([id, label]) => {
         const es = day.entries.filter(e => e.meal === id);
         if (!es.length) return '';
-        const st = totals(es);
-        return `<div class="meal"><h3>${label}<span>${fmt(st.kcal)} kcal</span></h3><ul class="entries">${es.map(e => `
+        return `<div class="meal"><h3>${label}<span>${fmt(totals(es).kcal)} kcal</span></h3><ul class="entries">${es.map(e => `
           <li class="entry">
             <div><div class="name">${esc(e.name)}</div>${e.portion ? `<div class="sub">${esc(e.portion)}</div>` : ''}</div>
             <div class="kc">${fmt(e.kcal)}<small>P ${fmt(e.p || 0)} g</small></div>
@@ -836,17 +1388,43 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
           </li>`).join('')}</ul></div>`;
       }).join('');
     }
-    renderWeek(c);
+
+    const keys = lastDays(7);
+    const vals = keys.map(k => totals(getDay(k).entries).kcal);
+    if (!kweekSel || !keys.includes(kweekSel)) kweekSel = keys[6];
+    drawBars('kweek', keys, vals, c.target, `Meta ${fmt(c.target)}`, kweekSel, v => `${fmt(v)} kcal`);
+
+    $('#install-banner').hidden = isStandalone() || !!LS.get('_installSeen');
   }
+
+  function drawBars(prefix, keys, vals, target, targetLabel, sel, label) {
+    const max = Math.max(target * 1.3, ...vals, 1);
+    $(`#${prefix}-plot`).innerHTML = `<div class="wk-target" style="bottom:${target / max * 100}%"><span>${targetLabel}</span></div>` +
+      keys.map((k, i) => `<button type="button" class="wk-col ${vals[i] ? '' : 'zero'} ${k === sel ? 'sel' : ''}" data-k="${k}" aria-label="${DAY_SHORT[parseKey(k).getDay()]}: ${label(vals[i])}"><span class="wk-bar" style="height:${Math.max(vals[i] / max * 100, 1.5)}%"></span></button>`).join('');
+    $(`#${prefix}-labels`).innerHTML = keys.map((k, i) => `<span class="${i === 6 ? 'today' : ''}">${i === 6 ? 'Hoy' : DAY_LETTER[parseKey(k).getDay()]}</span>`).join('');
+    const si = keys.indexOf(sel);
+    const d = parseKey(sel);
+    $(`#${prefix}-readout`).textContent = `${si === 6 ? 'Hoy' : DAY_SHORT[d.getDay()] + ' ' + d.getDate()}: ${label(vals[si])}`;
+  }
+  $('#kweek-plot').addEventListener('click', e => { const b = e.target.closest('.wk-col'); if (!b) return; kweekSel = b.dataset.k; renderHoy(); });
 
   $('#cups').addEventListener('click', e => {
     const b = e.target.closest('.cup'); if (!b) return;
     const day = getDay(todayKey());
     const i = Number(b.dataset.i);
     day.water = day.water === i + 1 ? i : i + 1;
-    saveDay(day.date, 500);
+    saveDay(day, 400);
     renderHoy();
   });
+  function toggleFace(force) {
+    const day = getDay(todayKey());
+    day.face = force ?? !day.face;
+    saveDay(day);
+    renderHoy();
+    return day.face;
+  }
+  $('#face-tick').addEventListener('click', () => toggleFace());
+  $('#face-done').addEventListener('click', () => { toggleFace(true); toast('Rutina de cara hecha hoy'); showView('hoy'); });
 
   $('#meals').addEventListener('click', e => {
     const b = e.target.closest('[data-del]'); if (!b) return;
@@ -854,86 +1432,296 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
     const idx = day.entries.findIndex(x => x.id === b.dataset.del);
     if (idx < 0) return;
     const [removed] = day.entries.splice(idx, 1);
-    saveDay(day.date);
+    saveDay(day);
     renderHoy();
     toast(`Borraste ${removed.name}`, () => {
-      day.entries.splice(Math.min(idx, day.entries.length), 0, removed);
-      saveDay(day.date);
+      const d2 = getDay(todayKey());
+      d2.entries.splice(Math.min(idx, d2.entries.length), 0, removed);
+      saveDay(d2);
       renderHoy();
     });
   });
 
-  function renderWeek(c) {
-    const keys = lastDays(7);
-    const vals = keys.map(k => totals((state.days[k] || { entries: [] }).entries).kcal);
-    const max = Math.max(c.target * 1.3, ...vals);
-    if (!weekSel || !keys.includes(weekSel)) weekSel = keys[6];
-    const plot = $('#week-plot');
-    plot.innerHTML = `<div class="wk-target" style="bottom:${c.target / max * 100}%"><span>Meta ${fmt(c.target)}</span></div>` +
-      keys.map((k, i) => `<button type="button" class="wk-col ${vals[i] ? '' : 'empty-day'} ${k === weekSel ? 'sel' : ''}" data-k="${k}" aria-label="${DAY_SHORT[parseKey(k).getDay()]}: ${fmt(vals[i])} kcal"><span class="wk-bar" style="height:${Math.max(vals[i] / max * 100, 1.5)}%"></span></button>`).join('');
-    $('#week-labels').innerHTML = keys.map((k, i) => `<span class="${i === 6 ? 'today' : ''}">${i === 6 ? 'Hoy' : DAY_LETTER[parseKey(k).getDay()]}</span>`).join('');
-    const si = keys.indexOf(weekSel);
-    const d = parseKey(weekSel);
-    $('#week-readout').textContent = `${si === 6 ? 'Hoy' : DAY_SHORT[d.getDay()] + ' ' + d.getDate()}: ${fmt(vals[si])} kcal`;
+  const isStandalone = () => window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  $('#install-dismiss').addEventListener('click', () => { LS.set('_installSeen', true); $('#install-banner').hidden = true; });
+
+  // ---------- Pasos ----------
+  function openStepsSheet() {
+    $('#steps-input').value = '';
+    $('#steps-input').placeholder = String(pasosMap()[todayKey()] || 8000);
+    $('#backdrop').hidden = false; $('#steps-sheet').hidden = false;
   }
-  $('#week-plot').addEventListener('click', e => {
-    const b = e.target.closest('.wk-col'); if (!b) return;
-    weekSel = b.dataset.k;
-    renderWeek(calc(state.profile));
+  $('#steps-tile').addEventListener('click', openStepsSheet);
+  $('#steps-close').addEventListener('click', closeSheets);
+  function runShortcut() { window.location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(SHORTCUT); }
+  $('#steps-run').addEventListener('click', () => { closeSheets(); runShortcut(); });
+  $('#run-shortcut').addEventListener('click', runShortcut);
+  $('#steps-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const n = clampInt($('#steps-input').value, 200000);
+    if (!$('#steps-input').value) return;
+    const date = todayKey();
+    const map = { ...pasosMap(), [date]: n };
+    store.put('pasos', map);
+    closeSheets();
+    renderHoy();
+    if (store.settings.clave) {
+      try { await rpc('md_pasos', { clave: store.settings.clave, pasos: n, fecha: date }); toast(`Guardado: ${fmt(n)} pasos`); }
+      catch { toast('Se guardó en el celular; no pude subirlo a la nube.'); }
+    } else toast(`Guardado: ${fmt(n)} pasos`);
+  });
+  $('#check-steps').addEventListener('click', async () => {
+    const st = $('#pasos-status');
+    if (!store.settings.clave) { st.textContent = 'Primero conecta tu nube.'; st.className = 'status err'; return; }
+    st.textContent = 'Revisando…'; st.className = 'status';
+    await sync.run();
+    const n = pasosMap()[todayKey()];
+    if (n != null) { st.textContent = `Llegaron ${fmt(n)} pasos de hoy. El atajo funciona.`; st.className = 'status ok'; }
+    else { st.textContent = 'Todavía no llegan pasos de hoy. Corre el atajo y vuelve a revisar.'; st.className = 'status err'; }
   });
 
-  // ---------- Calcular ----------
-  function renderCalc() {
-    const p = state.profile;
-    const c = calc(p);
-    $('#c-target').textContent = fmt(c.target);
-    $('#c-sub').textContent = p.pace > 0
-      ? `Bajas unos ${fmt1(c.kgPerWeek)} kg por semana${c.floored ? '. No bajes de este mínimo' : ''}`
-      : 'Mantienes tu peso';
-    $('#c-bmr').textContent = fmt(c.bmr);
-    $('#c-tdee').textContent = fmt(c.tdee);
-    $('#c-def').textContent = fmt(c.deficit);
-    $('#c-p').textContent = fmt(c.protein);
-    $('#c-c').textContent = fmt(c.carbs);
-    $('#c-f').textContent = fmt(c.fat);
-    const pr = projection();
-    $('#c-dec').textContent = `~${fmt1(pr.dec)} kg`;
-    const cur = pr.last.kg;
-    let eta;
-    if (p.goal >= cur) eta = `Ya estás en tu meta de ${fmt1(p.goal)} kg o por debajo.`;
-    else if (c.kgPerWeek <= 0) eta = `Con “Mantener” no te acercas a tus ${fmt1(p.goal)} kg.`;
-    else {
-      const d = new Date(pr.lastDate.getTime() + (cur - p.goal) / c.kgPerWeek * 7 * DAY);
-      eta = `Llegas a ${fmt1(p.goal).replace('.0', '')} kg cerca de ${MONTHS_LONG[d.getMonth()]} de ${d.getFullYear()}.`;
+  // ---------- Entreno ----------
+  function getWorkout(date) {
+    const v = store.get('e-' + date);
+    const dflt = WEEK_PLAN[parseKey(date).getDay()];
+    const w = { date, plan: dflt, sets: {}, rounds: [], extra: [], done: false, ...(v || {}) };
+    if (!PLANS[w.plan]) w.plan = dflt;
+    return w;
+  }
+  const saveWorkout = (w, ms = 0) => { store.data['e-' + w.date] = w; debounce('e-' + w.date, () => store.put('e-' + w.date, w), ms); };
+  function workoutProgress(w) {
+    const plan = PLANS[w.plan];
+    if (plan.ex) {
+      const total = plan.ex.reduce((a, x) => a + x.sets, 0);
+      const done = plan.ex.reduce((a, x) => a + (w.sets[x.id] || []).filter(s => s && s.done).length, 0);
+      return { done, total };
     }
-    $('#c-goal-eta').textContent = eta;
-
-    // Formulario (solo si no tiene foco, para no interrumpir lo que escribes)
-    const setIf = (id, v) => { const el = $(id); if (document.activeElement !== el) el.value = v; };
-    setIf('#f-age', p.age); setIf('#f-height', p.height); setIf('#f-weight', p.weight); setIf('#f-goal', p.goal);
-    $('#f-activity').value = String(p.activity);
-    $$('#sex-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === p.sex)));
-    $$('#pace-seg button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === p.pace)));
+    if (plan.circuit) return { done: (w.rounds || []).filter(Boolean).length, total: plan.circuit.rounds };
+    return { done: 0, total: 0 };
   }
-  const numField = (id, key, min, max) => $(id).addEventListener('input', e => {
-    const v = Number(e.target.value);
-    if (!Number.isFinite(v) || v < min || v > max) return;
-    state.profile[key] = v;
-    saveProfile(700);
-    renderCalc();
-  });
-  numField('#f-age', 'age', 13, 90);
-  numField('#f-height', 'height', 120, 230);
-  numField('#f-weight', 'weight', 35, 250);
-  numField('#f-goal', 'goal', 35, 250);
-  $('#f-activity').addEventListener('change', e => { state.profile.activity = Number(e.target.value); saveProfile(); renderCalc(); });
-  $('#sex-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.profile.sex = b.dataset.v; saveProfile(); renderCalc(); });
-  $('#pace-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.profile.pace = Number(b.dataset.v); saveProfile(); renderCalc(); });
-  $('#calc-form').addEventListener('submit', e => e.preventDefault());
+  function lastSets(exId, before) {
+    const keys = Object.keys(store.data).filter(k => k.startsWith('e-') && k.slice(2) < before).sort().reverse();
+    for (const k of keys) {
+      const s = ((store.data[k].sets || {})[exId] || []).filter(x => x && x.done);
+      if (s.length) return { date: k.slice(2), sets: s };
+    }
+    return null;
+  }
+  const setText = (s, kind) => kind === 'kg' ? `${s.kg || 0}×${s.reps || 0}` : kind === 'seg' ? `${s.reps || 0} s` : `${s.reps || 0}`;
 
-  // ---------- Peso ----------
-  let wSel = null;
-  function renderPeso() {
+  function renderEntreno() {
+    const date = todayKey();
+    const w = getWorkout(date);
+    const todayDow = new Date().getDay();
+    const plan = PLANS[w.plan];
+
+    $('#day-chips').innerHTML = DAY_ORDER.map(d => {
+      const id = WEEK_PLAN[d];
+      return `<button type="button" class="day-chip ${d === todayDow ? 'today' : ''}" data-plan="${id}" aria-pressed="${id === w.plan}"><span>${DAY_LETTER[d]}</span><small>${PLANS[id].place}</small></button>`;
+    }).join('');
+    $('#plan-place').textContent = plan.place + (w.plan !== WEEK_PLAN[todayDow] ? ' · cambiaste la rutina de hoy' : '');
+    $('#plan-name').textContent = plan.name;
+    const prog = workoutProgress(w);
+    const pill = $('#plan-pill');
+    pill.hidden = !prog.total && !w.done;
+    pill.textContent = w.done ? 'Hecho ✓' : `${prog.done} de ${prog.total}${plan.circuit ? ' vueltas' : ' series'}`;
+    pill.className = 'pill' + (w.done ? ' good' : '');
+
+    const body = $('#plan-body');
+    if (plan.ex) {
+      body.innerHTML = plan.ex.map(x => {
+        const sets = w.sets[x.id] || [];
+        const last = lastSets(x.id, date);
+        const doneAll = sets.filter(s => s && s.done).length >= x.sets;
+        const rows = Array.from({ length: x.sets }, (_, i) => {
+          const s = sets[i] || {};
+          const ph = last && last.sets[Math.min(i, last.sets.length - 1)];
+          const one = x.kind !== 'kg';
+          return `<div class="set-row ${one ? 'one' : ''} ${s.done ? 'done' : ''}" data-ex="${x.id}" data-i="${i}">
+            <span class="n">${i + 1}</span>
+            ${one ? '' : `<input type="number" inputmode="decimal" step="0.5" min="0" data-f="kg" value="${s.kg ?? ''}" placeholder="${ph ? ph.kg || 0 : 'kg'}" aria-label="Kilos, serie ${i + 1}">`}
+            <input type="number" inputmode="numeric" min="0" data-f="reps" value="${s.reps ?? ''}" placeholder="${ph ? ph.reps || 0 : x.kind === 'seg' ? 'seg' : 'reps'}" aria-label="${x.kind === 'seg' ? 'Segundos' : 'Repeticiones'}, serie ${i + 1}">
+            <button type="button" class="tick" data-done aria-pressed="${!!s.done}" aria-label="Serie ${i + 1} hecha"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button>
+          </div>`;
+        }).join('');
+        const lastTxt = last ? `Última vez (${DAY_SHORT[parseKey(last.date).getDay()]} ${parseKey(last.date).getDate()}): ${last.sets.map(s => setText(s, x.kind)).join(' · ')}` : 'Primera vez: empieza ligero y sube cuando completes todas las reps.';
+        return `<div class="ex ${doneAll ? 'complete' : ''}"><div class="ex-head"><b>${x.name}</b><span>${x.sets} × ${x.target}</span></div><p class="ex-last">${esc(lastTxt)}</p>${rows}</div>`;
+      }).join('');
+    } else if (plan.circuit) {
+      const c = plan.circuit;
+      body.innerHTML = `<div class="ex">
+        <div class="ex-head"><b>${c.rounds} vueltas · ${c.work} s de trabajo y ${c.rest} s de descanso</b></div>
+        <ul class="moves">${c.moves.map(m => `<li>${m}</li>`).join('')}</ul>
+        <div class="rounds">${Array.from({ length: c.rounds }, (_, i) => `<button type="button" class="round" data-round="${i}" aria-pressed="${!!(w.rounds || [])[i]}">${i + 1}</button>`).join('')}</div>
+        <button type="button" class="btn primary wide" id="start-circuit">Empezar circuito con temporizador</button>
+      </div>`;
+    } else {
+      body.innerHTML = `<div class="ex"><p>${plan.cardio}</p></div>`;
+    }
+    const fin = $('#plan-finisher');
+    fin.hidden = !plan.finisher;
+    fin.textContent = plan.finisher || '';
+
+    $('#extra-list').innerHTML = (w.extra || []).map((x, i) => `<li><span>${esc(x.name)}</span><b>${fmt(x.min)} min</b><button type="button" class="icon-btn" data-xdel="${i}" aria-label="Borrar ${esc(x.name)}">×</button></li>`).join('');
+    $('#finish-workout').textContent = w.done ? 'Entreno terminado ✓' : 'Terminar entreno';
+
+    const hist = Object.keys(store.data).filter(k => k.startsWith('e-') && store.data[k].done).sort().reverse().slice(0, 8);
+    $('#hist-count').textContent = hist.length ? `últimos ${hist.length}` : '';
+    $('#hist').innerHTML = hist.length ? hist.map(k => {
+      const h = { ...getWorkout(k.slice(2)) };
+      const d = parseKey(h.date);
+      const pr = workoutProgress(h);
+      const extra = (h.extra || []).reduce((a, x) => a + (x.min || 0), 0);
+      return `<li><b>${PLANS[h.plan].name}</b><span>${DAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}${pr.total ? ` · ${pr.done}/${pr.total}` : ''}${extra ? ` · +${extra} min` : ''}</span></li>`;
+    }).join('') : '<li><span>Aquí aparecen tus entrenos terminados.</span></li>';
+  }
+
+  $('#day-chips').addEventListener('click', e => {
+    const b = e.target.closest('[data-plan]'); if (!b) return;
+    const w = getWorkout(todayKey());
+    w.plan = b.dataset.plan;
+    saveWorkout(w);
+    renderEntreno();
+  });
+  $('#plan-body').addEventListener('input', e => {
+    const row = e.target.closest('.set-row'); if (!row) return;
+    const w = getWorkout(todayKey());
+    const arr = w.sets[row.dataset.ex] || (w.sets[row.dataset.ex] = []);
+    const i = Number(row.dataset.i);
+    arr[i] = { ...(arr[i] || {}), [e.target.dataset.f]: e.target.value === '' ? '' : Number(e.target.value) };
+    saveWorkout(w, 600);
+  });
+  $('#plan-body').addEventListener('click', e => {
+    const w = getWorkout(todayKey());
+    const plan = PLANS[w.plan];
+    const tick = e.target.closest('[data-done]');
+    if (tick) {
+      const row = tick.closest('.set-row');
+      const x = plan.ex.find(z => z.id === row.dataset.ex);
+      const arr = w.sets[x.id] || (w.sets[x.id] = []);
+      const i = Number(row.dataset.i);
+      const s = { ...(arr[i] || {}) };
+      // Si dejó vacío, usa lo de la vez pasada (el texto gris).
+      $$('input', row).forEach(inp => { if (inp.value === '' && inp.placeholder && /^\d/.test(inp.placeholder)) s[inp.dataset.f] = Number(inp.placeholder); else if (inp.value !== '') s[inp.dataset.f] = Number(inp.value); });
+      s.done = !s.done;
+      arr[i] = s;
+      saveWorkout(w);
+      renderEntreno();
+      if (s.done && plan.rest) {
+        const last = plan.ex[plan.ex.length - 1];
+        const finished = x.id === last.id && i === x.sets - 1;
+        if (!finished) timer.start([{ label: 'Descanso', s: plan.rest, rest: true, next: i + 1 < x.sets ? `Sigue: ${x.name}, serie ${i + 2}` : `Sigue: ${plan.ex[plan.ex.indexOf(x) + 1].name}` }]);
+      }
+      return;
+    }
+    const round = e.target.closest('[data-round]');
+    if (round) {
+      const i = Number(round.dataset.round);
+      w.rounds = [...(w.rounds || [])];
+      w.rounds[i] = !w.rounds[i];
+      saveWorkout(w);
+      renderEntreno();
+      return;
+    }
+    if (e.target.closest('#start-circuit')) {
+      const c = plan.circuit;
+      const segs = [{ label: 'Prepárate', s: 10, rest: true, next: `Empieza: ${c.moves[0]}` }];
+      for (let r = 0; r < c.rounds; r++) {
+        c.moves.forEach((m, j) => {
+          segs.push({ label: `${m} · vuelta ${r + 1}`, s: c.work, next: j + 1 < c.moves.length ? `Sigue: ${c.moves[j + 1]}` : r + 1 < c.rounds ? `Sigue: vuelta ${r + 2}` : 'Última' , round: r, lastOfRound: j === c.moves.length - 1 });
+          if (!(r === c.rounds - 1 && j === c.moves.length - 1)) segs.push({ label: 'Descanso', s: c.rest, rest: true, next: j + 1 < c.moves.length ? `Sigue: ${c.moves[j + 1]}` : `Sigue: ${c.moves[0]}, vuelta ${r + 2}` });
+        });
+      }
+      timer.start(segs, seg => {
+        if (seg.lastOfRound) {
+          const w2 = getWorkout(todayKey());
+          w2.rounds = [...(w2.rounds || [])];
+          w2.rounds[seg.round] = true;
+          saveWorkout(w2);
+          if (currentView === 'entreno') renderEntreno();
+        }
+      });
+    }
+  });
+  $('#extra-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const name = $('#extra-name').value.trim();
+    const min = clampInt($('#extra-min').value, 600);
+    if (!name || !min) { toast('Escribe la actividad y los minutos'); return; }
+    const w = getWorkout(todayKey());
+    w.extra = [...(w.extra || []), { name: name.slice(0, 40), min }];
+    saveWorkout(w);
+    $('#extra-name').value = ''; $('#extra-min').value = '';
+    renderEntreno();
+  });
+  $('#extra-list').addEventListener('click', e => {
+    const b = e.target.closest('[data-xdel]'); if (!b) return;
+    const w = getWorkout(todayKey());
+    w.extra = (w.extra || []).filter((_, i) => i !== Number(b.dataset.xdel));
+    saveWorkout(w);
+    renderEntreno();
+  });
+  $('#finish-workout').addEventListener('click', () => {
+    const w = getWorkout(todayKey());
+    w.done = !w.done;
+    saveWorkout(w);
+    timer.stop();
+    renderEntreno();
+    if (w.done) {
+      const pr = workoutProgress(w);
+      toast(pr.total ? `Entreno terminado: ${pr.done} de ${pr.total}. ¡Bien!` : 'Entreno terminado. ¡Bien!');
+    }
+  });
+
+  // Temporizador de descanso y de circuito
+  const timer = {
+    segs: [], i: 0, end: 0, iv: null, ctx: null, onSeg: null,
+    start(segs, onSeg = null) {
+      this.segs = segs; this.i = 0; this.onSeg = onSeg;
+      this.end = Date.now() + segs[0].s * 1000;
+      try { this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)(); this.ctx.resume(); } catch { this.ctx = null; }
+      $('#timer').hidden = false;
+      clearInterval(this.iv);
+      this.iv = setInterval(() => this.tick(), 250);
+      this.tick();
+    },
+    tick() {
+      while (this.segs.length && Date.now() >= this.end) {
+        const done = this.segs[this.i];
+        if (this.onSeg) this.onSeg(done);
+        this.i++;
+        this.beep(this.i >= this.segs.length ? 3 : 1);
+        if (this.i >= this.segs.length) { this.stop(); toast('¡Listo!'); return; }
+        this.end += this.segs[this.i].s * 1000;
+      }
+      const seg = this.segs[this.i];
+      if (!seg) return;
+      const left = Math.max(0, Math.ceil((this.end - Date.now()) / 1000));
+      $('#timer').classList.toggle('work', !seg.rest);
+      $('#timer-label').textContent = seg.label;
+      $('#timer-time').textContent = `${Math.floor(left / 60)}:${pad(left % 60)}`;
+      $('#timer-next').textContent = seg.next || '';
+    },
+    adjust(sec) { this.end = Math.max(Date.now() + 1000, this.end + sec * 1000); this.tick(); },
+    stop() { clearInterval(this.iv); this.iv = null; this.segs = []; $('#timer').hidden = true; },
+    beep(times) {
+      if (!this.ctx) return;
+      for (let k = 0; k < times; k++) {
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        const t0 = this.ctx.currentTime + k * 0.22;
+        o.frequency.value = 880; o.connect(g); g.connect(this.ctx.destination);
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+        o.start(t0); o.stop(t0 + 0.2);
+      }
+    }
+  };
+  $('#timer-plus').addEventListener('click', () => timer.adjust(15));
+  $('#timer-minus').addEventListener('click', () => timer.adjust(-15));
+  $('#timer-stop').addEventListener('click', () => timer.stop());
+
+  // ---------- Progreso ----------
+  let wSel = null, sweekSel = null;
+  function renderProgreso() {
     const ws = sortedWeights();
     const first = ws[0], last = ws[ws.length - 1];
     const pr = projection();
@@ -942,8 +1730,7 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
     const d = last.kg - first.kg;
     $('#w-delta').textContent = (d > 0 ? '+' : d < 0 ? '−' : '') + fmt1(Math.abs(d));
     $('#w-dec').textContent = fmt1(pr.dec);
-    if (!$('#w-input').value) $('#w-input').placeholder = fmt1(last.kg);
-
+    $('#w-input').placeholder = fmt1(last.kg);
     $('#w-list').innerHTML = [...ws].reverse().map((w, i, arr) => {
       const prev = arr[i + 1];
       const dd = prev ? w.kg - prev.kg : null;
@@ -954,16 +1741,30 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
         ${ws.length > 1 ? `<button type="button" class="icon-btn" data-wdel="${w.date}" aria-label="Borrar el peso del ${dt.getDate()} de ${MONTHS_LONG[dt.getMonth()]}">×</button>` : '<span></span>'}</li>`;
     }).join('');
     drawWeight(ws, pr);
+
+    const keys = lastDays(7);
+    const pm = pasosMap();
+    const vals = keys.map(k => pm[k] || 0);
+    if (!sweekSel || !keys.includes(sweekSel)) sweekSel = keys[6];
+    const goal = profile().stepGoal;
+    drawBars('sweek', keys, vals, goal, `Meta ${fmt(goal)}`, sweekSel, v => `${fmt(v)} pasos`);
+
+    const waist = (store.get('waist') || { list: [] }).list.slice().sort((a, b) => a.date < b.date ? -1 : 1);
+    const wl = waist[waist.length - 1];
+    const wf = waist[0];
+    $('#waist-last').textContent = wl ? `${fmt1(wl.cm)} cm${waist.length > 1 ? ` (${wl.cm - wf.cm > 0 ? '+' : '−'}${fmt1(Math.abs(wl.cm - wf.cm))} desde ${parseKey(wf.date).getDate()} ${MONTHS[parseKey(wf.date).getMonth()]})` : ''}` : 'Sin medir';
   }
+  $('#sweek-plot').addEventListener('click', e => { const b = e.target.closest('.wk-col'); if (!b) return; sweekSel = b.dataset.k; renderProgreso(); });
 
   function drawWeight(ws, pr) {
     const svg = $('#w-chart');
     const W = 340, H = 210, L = 34, R = 40, T = 14, B = 26;
-    const goal = state.profile.goal;
+    const goal = profile().goal;
     const x0 = parseKey(ws[0].date).getTime();
     const x1 = Math.max(pr.end.getTime(), parseKey(ws[ws.length - 1].date).getTime() + 7 * DAY);
     const kgs = ws.map(w => w.kg).concat(pr.dec);
-    let yMin = Math.floor(Math.min(...kgs) - 1), yMax = Math.ceil(Math.max(...kgs) + 1);
+    let yMin = Math.floor(Math.min(...kgs) - 1);
+    const yMax = Math.ceil(Math.max(...kgs) + 1);
     const goalIn = goal >= yMin - 3 && goal < yMax;
     if (goalIn) yMin = Math.min(yMin, Math.floor(goal - 1));
     const sx = t => L + (t - x0) / Math.max(x1 - x0, DAY) * (W - L - R);
@@ -974,22 +1775,19 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
     for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) {
       out += `<line class="grid" x1="${L}" x2="${W - R}" y1="${sy(v)}" y2="${sy(v)}"></line><text x="${L - 6}" y="${sy(v) + 4}" text-anchor="end">${v}</text>`;
     }
-    // Etiquetas de meses
-    const s = new Date(x0); let m = new Date(s.getFullYear(), s.getMonth() + 1, 1);
+    const s = new Date(x0);
+    let m = new Date(s.getFullYear(), s.getMonth() + 1, 1);
     out += `<text x="${L}" y="${H - 6}" text-anchor="start">${s.getDate()} ${MONTHS[s.getMonth()]}</text>`;
     while (m.getTime() < x1 - 10 * DAY) {
       if (sx(m.getTime()) - L > 46) out += `<text x="${sx(m.getTime())}" y="${H - 6}" text-anchor="middle">${MONTHS[m.getMonth()]}</text>`;
       m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
     }
     out += `<text x="${sx(pr.end.getTime())}" y="${H - 6}" text-anchor="end">31 dic</text>`;
-    // Meta
     $('#legend-goal').hidden = !goalIn;
-    if (goalIn) out += `<line class="goal" x1="${L}" x2="${W - R}" y1="${sy(goal)}" y2="${sy(goal)}"></line><text class="goal-label" x="${W - R + 4}" y="${sy(goal) + 4}">${fmt1(goal).replace('.0', '')}</text>`;
-    // Ritmo esperado
+    if (goalIn) out += `<line class="goal" x1="${L}" x2="${W - R}" y1="${sy(goal)}" y2="${sy(goal)}"></line><text class="goal-label" x="${W - R + 4}" y="${sy(goal) + 4}">${trim0(fmt1(goal))}</text>`;
     const last = ws[ws.length - 1];
     out += `<line class="proj" x1="${sx(parseKey(last.date).getTime())}" y1="${sy(last.kg)}" x2="${sx(pr.end.getTime())}" y2="${sy(pr.dec)}"></line>`;
     out += `<text class="end-label" x="${sx(pr.end.getTime()) + 4}" y="${sy(pr.dec) + 4}">~${fmt1(pr.dec)}</text>`;
-    // Tu peso
     if (ws.length > 1) out += `<polyline class="actual" points="${ws.map(w => `${sx(parseKey(w.date).getTime())},${sy(w.kg)}`).join(' ')}"></polyline>`;
     ws.forEach(w => {
       const cx = sx(parseKey(w.date).getTime()), cy = sy(w.kg);
@@ -1000,43 +1798,121 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
   $('#w-chart').addEventListener('click', e => {
     const h = e.target.closest('.hit'); if (!h) return;
     wSel = h.dataset.d;
-    const w = state.weights.list.find(x => x.date === wSel);
+    const w = weights().list.find(x => x.date === wSel);
     const dt = parseKey(wSel);
     $('#w-readout').innerHTML = `${DAY_SHORT[dt.getDay()]} ${dt.getDate()} de ${MONTHS_LONG[dt.getMonth()]}: <b>${fmt1(w.kg)} kg</b>`;
-    renderPeso();
+    renderProgreso();
   });
+  function setWeights(list) {
+    store.put('weights', { list });
+    const latest = [...list].sort((a, b) => a.date < b.date ? -1 : 1).pop();
+    store.put('profile', { ...profile(), weight: latest.kg });
+  }
   $('#w-form').addEventListener('submit', e => {
     e.preventDefault();
     const v = Number($('#w-input').value);
     if (!Number.isFinite(v) || v < 35 || v > 250) { toast('Escribe un peso entre 35 y 250 kg'); return; }
     const kg = Math.round(v * 10) / 10;
     const date = todayKey();
-    const list = state.weights.list.filter(w => w.date !== date);
-    list.push({ date, kg });
-    state.weights.list = list;
-    const latest = sortedWeights().pop();
-    state.profile.weight = latest.kg;
-    saveWeights(); saveProfile();
+    setWeights([...weights().list.filter(w => w.date !== date), { date, kg }]);
     $('#w-input').value = '';
-    renderPeso();
-    toast(`Guardado: ${fmt1(kg)} kg. Tu meta diaria ahora es ${fmt(calc(state.profile).target)} kcal`);
+    renderProgreso();
+    toast(`Guardado: ${fmt1(kg)} kg. Tu meta ahora es ${fmt(calc(profile()).target)} kcal al día`);
   });
   $('#w-list').addEventListener('click', e => {
     const b = e.target.closest('[data-wdel]'); if (!b) return;
-    const removed = state.weights.list.find(w => w.date === b.dataset.wdel);
-    state.weights.list = state.weights.list.filter(w => w.date !== b.dataset.wdel);
-    state.profile.weight = sortedWeights().pop().kg;
-    saveWeights(); saveProfile();
-    renderPeso();
-    toast(`Borraste ${fmt1(removed.kg)} kg`, () => {
-      state.weights.list.push(removed);
-      state.profile.weight = sortedWeights().pop().kg;
-      saveWeights(); saveProfile();
-      renderPeso();
-    });
+    const list = weights().list;
+    const removed = list.find(w => w.date === b.dataset.wdel);
+    setWeights(list.filter(w => w.date !== b.dataset.wdel));
+    renderProgreso();
+    toast(`Borraste ${fmt1(removed.kg)} kg`, () => { setWeights([...weights().list, removed]); renderProgreso(); });
+  });
+  $('#waist-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const v = Number($('#waist-input').value);
+    if (!Number.isFinite(v) || v < 40 || v > 200) { toast('Escribe tu cintura en centímetros'); return; }
+    const date = todayKey();
+    const list = (store.get('waist') || { list: [] }).list.filter(w => w.date !== date);
+    store.put('waist', { list: [...list, { date, cm: Math.round(v * 2) / 2 }] });
+    $('#waist-input').value = '';
+    renderProgreso();
+    toast(`Cintura guardada: ${fmt1(v)} cm`);
   });
 
-  // ---------- Avisos ----------
+  // ---------- Más ----------
+  function renderMas() {
+    $('#fotos-state').textContent = store.settings.apiKey ? `Lista con ${store.settings.model === 'claude-haiku-5-5' ? 'Haiku 5.5' : 'Opus 5.5'}` : 'Pon tu API key de Anthropic';
+    renderSyncChip();
+    if (currentSub === 'plan') renderPlan();
+    if (currentSub === 'avisos') renderAvisos();
+    if (currentSub === 'pasos') renderPasosSetup();
+    if (currentSub === 'fotos') { $('#api-key').value = store.settings.apiKey || ''; $('#ai-model').value = store.settings.model || 'claude-opus-5-5'; }
+    if (currentSub === 'nube') { $('#clave-input').value = store.settings.clave || ''; }
+  }
+
+  function renderPlan() {
+    const p = profile();
+    const c = calc(p);
+    $('#c-target').textContent = fmt(c.target);
+    $('#c-sub').textContent = p.pace > 0 ? `Bajas unos ${fmt1(c.kgPerWeek)} kg de grasa por semana${c.floored ? '. Este es el mínimo seguro' : ''}` : 'Mantienes tu peso';
+    $('#c-bmr').textContent = fmt(c.bmr);
+    $('#c-tdee').textContent = fmt(c.tdee);
+    $('#c-def').textContent = fmt(c.deficit);
+    $('#c-p').textContent = fmt(c.protein);
+    $('#c-c').textContent = fmt(c.carbs);
+    $('#c-f').textContent = fmt(c.fat);
+    const pr = projection();
+    $('#c-dec').textContent = `~${fmt1(pr.dec)} kg`;
+    const cur = pr.last.kg;
+    let eta;
+    if (p.goal >= cur) eta = `Ya estás en tu meta de ${trim0(fmt1(p.goal))} kg o por debajo.`;
+    else if (c.kgPerWeek <= 0) eta = `Con “Mantener” no te acercas a tus ${trim0(fmt1(p.goal))} kg.`;
+    else {
+      const d = new Date(pr.lastDate.getTime() + (cur - p.goal) / c.kgPerWeek * 7 * DAY);
+      eta = `Llegas a ${trim0(fmt1(p.goal))} kg cerca de ${MONTHS_LONG[d.getMonth()]} de ${d.getFullYear()}.`;
+    }
+    $('#c-goal-eta').textContent = eta;
+    const setIf = (id, v) => { const el = $(id); if (document.activeElement !== el) el.value = v; };
+    setIf('#f-age', p.age); setIf('#f-height', p.height); setIf('#f-weight', p.weight); setIf('#f-goal', p.goal); setIf('#f-steps', p.stepGoal);
+    $('#f-activity').value = String(p.activity);
+    $$('#sex-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === p.sex)));
+    $$('#pace-seg button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === p.pace)));
+  }
+  const numField = (id, key, min, max) => $(id).addEventListener('input', e => {
+    const v = Number(e.target.value);
+    if (!Number.isFinite(v) || v < min || v > max) return;
+    const p = { ...profile(), [key]: v };
+    store.data.profile = p;
+    debounce('profile', () => store.put('profile', profile()), 700);
+    renderPlan();
+  });
+  numField('#f-age', 'age', 13, 90);
+  numField('#f-height', 'height', 120, 230);
+  numField('#f-weight', 'weight', 35, 250);
+  numField('#f-goal', 'goal', 35, 250);
+  numField('#f-steps', 'stepGoal', 2000, 40000);
+  $('#f-activity').addEventListener('change', e => { store.put('profile', { ...profile(), activity: Number(e.target.value) }); renderPlan(); });
+  $('#sex-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; store.put('profile', { ...profile(), sex: b.dataset.v }); renderPlan(); });
+  $('#pace-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; store.put('profile', { ...profile(), pace: Number(b.dataset.v) }); renderPlan(); });
+  $('#calc-form').addEventListener('submit', e => e.preventDefault());
+
+  // Pasos: datos para armar el atajo
+  function renderPasosSetup() {
+    const clave = store.settings.clave;
+    $('#pasos-needs-cloud').hidden = !!clave;
+    $('#sc-url').textContent = `${SB_URL}/rest/v1/rpc/md_pasos`;
+    $('#sc-h1v').innerHTML = `<span class="lbl">Texto</span>${esc(SB_KEY)}`;
+    $('#sc-clave').textContent = clave || 'conecta tu nube primero';
+  }
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-copy]'); if (!b) return;
+    const el = document.getElementById(b.dataset.copy);
+    const text = [...el.childNodes].filter(n => !(n.classList && n.classList.contains('lbl'))).map(n => n.textContent).join('').trim();
+    try { await navigator.clipboard.writeText(text); b.textContent = 'Copiado'; setTimeout(() => { b.textContent = 'Copiar'; }, 1500); }
+    catch { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('Mantén presionado para copiar'); }
+  });
+
+  // Avisos
   function nextOccurrence(r, from = new Date()) {
     const [hh, mm] = r.time.split(':').map(Number);
     for (let i = 0; i < 8; i++) {
@@ -1047,222 +1923,257 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
   }
   function renderNext() {
     const now = new Date();
-    const next = state.reminders.list.filter(r => r.on && r.days.length)
-      .map(r => ({ r, d: nextOccurrence(r, now) })).filter(x => x.d).sort((a, b) => a.d - b.d)[0];
+    const next = reminders().list.filter(r => r.on && r.days.length).map(r => ({ r, d: nextOccurrence(r, now) })).filter(x => x.d).sort((a, b) => a.d - b.d)[0];
     const el = $('#next-rem');
     if (!next) { el.textContent = 'No tienes avisos activos.'; return; }
-    const same = keyOf(next.d) === keyOf(now);
-    const when = same ? 'hoy' : keyOf(next.d) === keyOf(new Date(now.getTime() + DAY)) ? 'mañana' : DAY_SHORT[next.d.getDay()];
+    const when = keyOf(next.d) === keyOf(now) ? 'hoy' : keyOf(next.d) === keyOf(new Date(now.getTime() + DAY)) ? 'mañana' : DAY_SHORT[next.d.getDay()];
     el.innerHTML = `Próximo aviso: <b>${esc(next.r.label)}</b>, ${when} a las <b>${next.r.time}</b>`;
   }
   function renderAvisos() {
-    $('#rem-list').innerHTML = state.reminders.list.map(r => `
-      <li class="rem ${r.on ? '' : 'off'}" data-id="${r.id}">
+    $('#rem-list').innerHTML = reminders().list.map(r => `
+      <li class="rem ${r.on ? '' : 'off'}" data-id="${esc(r.id)}">
         <div class="rem-top">
-          <label class="switch"><input type="checkbox" id="on-${r.id}" ${r.on ? 'checked' : ''}><span class="knob"></span><span class="sr">Activar ${esc(r.label)}</span></label>
+          <label class="switch"><input type="checkbox" id="on-${esc(r.id)}" ${r.on ? 'checked' : ''}><span class="knob"></span><span class="sr">Activar ${esc(r.label)}</span></label>
           <div class="rem-text"><b>${esc(r.label)}</b><small>${esc(r.note || '')}</small></div>
-          <input type="time" id="time-${r.id}" value="${r.time}" aria-label="Hora de ${esc(r.label)}">
+          <input type="time" id="time-${esc(r.id)}" value="${esc(r.time)}" aria-label="Hora de ${esc(r.label)}">
         </div>
         <div class="days" role="group" aria-label="Días de ${esc(r.label)}">${DAY_ORDER.map(d => `<button type="button" class="day" data-d="${d}" aria-pressed="${r.days.includes(d)}" aria-label="${DAY_SHORT[d]}">${DAY_LETTER[d]}</button>`).join('')}</div>
       </li>`).join('');
     renderNext();
-    updateSyncButton();
+    const link = $('#cal-link');
+    if (store.settings.clave) { link.href = `${SB_URL}/functions/v1/calendario?c=${encodeURIComponent(store.settings.clave)}`; link.removeAttribute('aria-disabled'); }
+    else { link.href = '#'; link.setAttribute('aria-disabled', 'true'); }
+    renderSyncChip();
   }
-  const remById = id => state.reminders.list.find(r => r.id === id);
+  function updateReminder(id, fn) {
+    const r = reminders();
+    const item = r.list.find(x => x.id === id);
+    if (!item) return;
+    fn(item);
+    store.put('reminders', r);
+    renderNext();
+  }
   $('#rem-list').addEventListener('change', e => {
     const li = e.target.closest('.rem'); if (!li) return;
-    const r = remById(li.dataset.id);
-    if (e.target.type === 'checkbox') { r.on = e.target.checked; li.classList.toggle('off', !r.on); }
-    if (e.target.type === 'time' && /^\d{2}:\d{2}$/.test(e.target.value)) r.time = e.target.value;
-    saveReminders(400);
-    renderNext();
+    updateReminder(li.dataset.id, r => {
+      if (e.target.type === 'checkbox') { r.on = e.target.checked; li.classList.toggle('off', !r.on); }
+      if (e.target.type === 'time' && /^\d{2}:\d{2}$/.test(e.target.value)) r.time = e.target.value;
+    });
   });
   $('#rem-list').addEventListener('click', e => {
     const b = e.target.closest('.day'); if (!b) return;
-    const r = remById(b.closest('.rem').dataset.id);
     const d = Number(b.dataset.d);
-    r.days = r.days.includes(d) ? r.days.filter(x => x !== d) : [...r.days, d];
-    b.setAttribute('aria-pressed', String(r.days.includes(d)));
-    saveReminders(400);
-    renderNext();
+    updateReminder(b.closest('.rem').dataset.id, r => {
+      r.days = r.days.includes(d) ? r.days.filter(x => x !== d) : [...r.days, d];
+      b.setAttribute('aria-pressed', String(r.days.includes(d)));
+    });
   });
-
-  // Aviso dentro de la página mientras está abierta
+  $('#cal-link').addEventListener('click', e => {
+    if (!store.settings.clave) { e.preventDefault(); toast('Primero conecta tu nube en Más → Nube y respaldo'); }
+    else if (store.dirty.has('reminders')) { e.preventDefault(); toast('Guardando tus avisos… vuelve a tocar en unos segundos'); sync.run(); }
+  });
   const fired = new Set();
   setInterval(() => {
     const now = new Date();
     const hm = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    state.reminders.list.forEach(r => {
+    reminders().list.forEach(r => {
       const k = `${r.id}|${keyOf(now)}|${r.time}`;
-      if (r.on && r.time === hm && r.days.includes(now.getDay()) && !fired.has(k)) {
-        fired.add(k);
-        toast(`${r.label}: ${r.note || ''}`, null, 12000);
-      }
+      if (r.on && r.time === hm && r.days.includes(now.getDay()) && !fired.has(k)) { fired.add(k); toast(`${r.label}: ${r.note || ''}`, null, 12000); }
     });
-    if (currentView === 'avisos') renderNext();
+    if (currentSub === 'avisos') renderNext();
   }, 20000);
 
-  // Google Calendar
-  let mcpP = null;
-  const getMcp = () => (mcpP ||= (window.claude && typeof window.claude.use === 'function' ? window.claude.use('mcp').catch(() => null) : Promise.resolve(null)));
-  let confirmResend = false;
-  function updateSyncButton() {
-    const btn = $('#cal-sync');
-    if (confirmResend) btn.textContent = 'Sí, crearlos otra vez';
-    else btn.textContent = state.reminders.syncedAt ? 'Volver a enviar a Google Calendar' : 'Enviar a Google Calendar';
-    if (state.reminders.syncedAt && !$('#cal-status').textContent) {
-      const d = parseKey(state.reminders.syncedAt);
-      setCalStatus(`Ya los enviaste el ${d.getDate()} de ${MONTHS_LONG[d.getMonth()]}. Si cambias horas o días, borra los anteriores en tu calendario y vuelve a enviarlos.`);
-    }
+  // Fotos: clave de la API
+  async function pasteInto(input) {
+    try { input.value = (await navigator.clipboard.readText()).trim(); input.dispatchEvent(new Event('input')); }
+    catch { input.focus(); toast('Mantén presionado el campo y elige Pegar'); }
   }
-  function setCalStatus(msg, kind = '') {
-    const el = $('#cal-status');
-    el.textContent = msg;
-    el.className = 'status ' + kind;
-  }
-  const isoLocal = d => `${keyOf(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
-  function eventFor(r) {
-    const start = nextOccurrence(r);
-    const end = new Date(start.getTime() + 10 * 60000);
-    const days = [...r.days].sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
-    return {
-      summary: r.label,
-      description: `${r.note || ''}\n\nCreado desde Meta Diciembre.`,
-      startTime: isoLocal(start),
-      endTime: isoLocal(end),
-      recurrenceData: [days.length === 7 ? 'RRULE:FREQ=DAILY' : `RRULE:FREQ=WEEKLY;BYDAY=${days.map(d => RRULE_DAY[d]).join(',')}`],
-      overrideReminders: [{ method: 'popup', minutes: 0 }],
-      availability: 'AVAILABILITY_FREE'
-    };
-  }
-  function calErrorCopy(e) {
-    switch (e && e.code) {
-      case 'server_not_connected':
-      case 'server_not_found':
-      case 'selection_required':
-        return 'Conecta Google Calendar en claude.ai → Ajustes → Conectores y vuelve a tocar el botón.';
-      case 'needs_reauth':
-        return 'Tu conexión con Google Calendar caducó. Vuelve a conectarla en claude.ai → Ajustes → Conectores.';
-      case 'not_in_manifest':
-      case 'approval_required':
-      case 'not_granted':
-      case 'consent_required':
-        return 'Falta tu permiso para usar Google Calendar. Toca el botón otra vez y elige Permitir.';
-      case 'blocked_by_policy':
-        return 'Tu cuenta no permite usar Google Calendar desde aquí.';
-      case 'capability_disabled':
-      case 'capability_removed':
-        return 'Esta vista no puede conectarse a Google Calendar. Abre la página en la app de Claude.';
-      case 'tool_error':
-        return 'Google Calendar rechazó el aviso: ' + String(e.message || '').slice(0, 140);
-      default:
-        return 'Google Calendar no respondió. Revisa tu calendario antes de volver a intentar, para no duplicar avisos.';
+  $('#api-paste').addEventListener('click', () => pasteInto($('#api-key')));
+  $('#api-save').addEventListener('click', () => {
+    const key = $('#api-key').value.trim();
+    const st = $('#api-status');
+    if (key && !/^sk-ant-/.test(key)) { st.textContent = 'Esa no parece una API key de Anthropic (empieza con sk-ant-).'; st.className = 'status err'; return; }
+    store.settings.apiKey = key;
+    store.settings.model = $('#ai-model').value;
+    store.saveSettings();
+    st.textContent = key ? 'Guardado. Ya puedes usar Foto en Hoy.' : 'Sin clave: Foto queda desactivada.';
+    st.className = 'status ' + (key ? 'ok' : '');
+    renderMas();
+  });
+  $('#api-clear').addEventListener('click', () => {
+    delete store.settings.apiKey; store.saveSettings();
+    $('#api-key').value = '';
+    $('#api-status').textContent = 'Clave borrada de este iPhone.';
+    renderMas();
+  });
+
+  // Nube
+  const cleanClave = s => s.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/(.{4})(?=.)/g, '$1-');
+  $('#clave-paste').addEventListener('click', () => pasteInto($('#clave-input')));
+  $('#clave-connect').addEventListener('click', async () => {
+    const st = $('#nube-status');
+    const clave = cleanClave($('#clave-input').value);
+    if (clave.replace(/-/g, '').length < 20) { st.textContent = 'El código tiene 24 letras y números.'; st.className = 'status err'; return; }
+    st.textContent = 'Conectando…'; st.className = 'status';
+    try {
+      const ok = await rpc('md_ping', { clave });
+      if (!ok) { st.textContent = 'Ese código no existe. Revísalo letra por letra.'; st.className = 'status err'; return; }
+      store.settings.clave = clave;
+      if (store.settings.claveUsed !== clave) { store.settings.lastPull = null; store.settings.claveUsed = clave; }
+      store.saveSettings();
+      $('#clave-input').value = clave;
+      await sync.run();
+      st.textContent = sync.state === 'ok' ? 'Conectado. Tus datos ya están en tu nube.' : 'Conectado, pero la nube no respondió del todo. Se reintenta solo.';
+      st.className = 'status ' + (sync.state === 'ok' ? 'ok' : 'err');
+      renderAll();
+    } catch (e) {
+      st.textContent = e.network ? 'Sin internet. Intenta de nuevo con conexión.' : 'La nube no responde. Puede estar en pausa: ábrela desde supabase.com o espera unos minutos.';
+      st.className = 'status err';
     }
-  }
-  $('#cal-sync').addEventListener('click', async () => {
-    const btn = $('#cal-sync');
-    const list = state.reminders.list.filter(r => r.on && r.days.length);
-    if (!list.length) { setCalStatus('Activa al menos un aviso primero.', 'err'); return; }
-    if (state.reminders.syncedAt && !confirmResend) {
-      confirmResend = true;
-      updateSyncButton();
-      setCalStatus('Ya enviaste tus avisos antes. Si los mandas otra vez se van a duplicar, a menos que borres los anteriores en tu calendario. ¿Seguro?', 'err');
-      return;
-    }
-    confirmResend = false;
-    btn.disabled = true;
-    setCalStatus('Conectando con Google Calendar…');
-    const mcp = await getMcp();
-    if (!mcp) {
-      btn.disabled = false; updateSyncButton();
-      setCalStatus('Esta vista no puede conectarse a Google Calendar. Abre la página en la app de Claude con tu sesión iniciada.', 'err');
-      return;
-    }
-    let ok = 0;
-    for (const r of list) {
-      setCalStatus(`Creando ${ok + 1} de ${list.length}: ${r.label}…`);
-      try {
-        await mcp.callTool('Google Calendar', 'create_event', eventFor(r));
-        ok++;
-      } catch (e) {
-        setCalStatus((ok ? `Se crearon ${ok} de ${list.length}. ` : '') + calErrorCopy(e), 'err');
-        if (ok) { state.reminders.syncedAt = todayKey(); saveReminders(); }
-        btn.disabled = false; updateSyncButton();
-        return;
-      }
-    }
-    state.reminders.syncedAt = todayKey();
-    saveReminders();
-    btn.disabled = false; updateSyncButton();
-    setCalStatus(`Listo: ${ok} avisos en tu Google Calendar. Se repiten en los días que marcaste.`, 'ok');
+  });
+  $('#sync-now').addEventListener('click', async () => {
+    const st = $('#nube-status');
+    if (!store.settings.clave) { st.textContent = 'Primero escribe tu código.'; st.className = 'status err'; return; }
+    st.textContent = 'Sincronizando…'; st.className = 'status';
+    await sync.run();
+    st.textContent = sync.state === 'ok' ? 'Todo al día.' : $('#sync-chip').textContent;
+    st.className = 'status ' + (sync.state === 'ok' ? 'ok' : 'err');
+  });
+  let forgetArmed = false;
+  $('#clave-forget').addEventListener('click', () => {
+    const btn = $('#clave-forget');
+    if (!forgetArmed) { forgetArmed = true; btn.textContent = 'Toca otra vez para desconectar'; setTimeout(() => { forgetArmed = false; btn.textContent = 'Desconectar este celular'; }, 4000); return; }
+    forgetArmed = false;
+    delete store.settings.clave; store.saveSettings();
+    btn.textContent = 'Desconectar este celular';
+    $('#nube-status').textContent = 'Desconectado. Tus datos siguen en este iPhone y en tu nube.';
+    sync.set('local');
+    renderAll();
+  });
+  $('#backup').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify({ app: 'meta-diciembre', exported: new Date().toISOString(), data: store.data }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `meta-diciembre-${todayKey()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   });
 
   // ---------- Agregar comida ----------
-  let mode = 'foto', meal = 'comida', photoFile = null, photoURL = null, ctl = null, aiItems = [];
-  let sample = null, canImages = false;
-  const aiReady = (async () => {
-    if (!window.claude || typeof window.claude.use !== 'function') return;
-    try {
-      sample = await window.claude.use('sample');
-      if (!sample) return;
-      const lim = await sample.limits().catch(() => null);
-      canImages = !!(lim && lim.images);
-    } catch { sample = null; }
-  })();
-
-  const sheetEl = $('#sheet');
-  function defaultMeal() {
-    const h = new Date().getHours();
-    return h < 11 ? 'desayuno' : h < 16 ? 'comida' : h < 19 ? 'merienda' : 'cena';
-  }
+  let mode = 'lista', meal = 'comida', qty = 1, cat = 'Recientes', photoFile = null, photoURL = null, aiItems = [];
   const PHOTO_EMPTY = $('#photo-drop').innerHTML;
+  const defaultMeal = () => { const h = new Date().getHours(); return h < 11 ? 'desayuno' : h < 16 ? 'comida' : h < 19 ? 'merienda' : 'cena'; };
+  const recent = () => (store.get('recent') || { list: [] }).list;
+
+  function openSheet(m) {
+    mode = m; meal = defaultMeal(); qty = 1;
+    cat = recent().length ? 'Recientes' : 'Platillos';
+    $('#food-search').value = '';
+    resetResult(); resetPhoto();
+    $('#backdrop').hidden = false; $('#sheet').hidden = false;
+    document.body.style.overflow = 'hidden';
+    applyMode();
+    $('#sheet').scrollTop = 0;
+  }
+  function closeSheets() {
+    $('#backdrop').hidden = true; $('#sheet').hidden = true; $('#steps-sheet').hidden = true;
+    document.body.style.overflow = '';
+  }
+  function applyMode() {
+    $$('#mode-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === mode)));
+    $$('#meal-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === meal)));
+    $$('#qty-seg button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === qty)));
+    $('#pane-lista').hidden = mode !== 'lista';
+    $('#pane-foto').hidden = mode !== 'foto';
+    $('#pane-manual').hidden = mode !== 'manual';
+    const hasKey = !!store.settings.apiKey;
+    $('#foto-setup').hidden = hasKey;
+    $('#photo-drop').hidden = !hasKey; $('#analyze').hidden = !hasKey;
+    $('#photo-note').closest('.field').hidden = !hasKey;
+    if (mode === 'lista') renderFoods();
+  }
+  $$('[data-add]').forEach(b => b.addEventListener('click', () => openSheet(b.dataset.add)));
+  $('#sheet-close').addEventListener('click', closeSheets);
+  $('#backdrop').addEventListener('click', closeSheets);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheets(); });
+  $('#mode-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; mode = b.dataset.v; applyMode(); });
+  $('#meal-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; meal = b.dataset.v; applyMode(); });
+  $('#qty-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; qty = Number(b.dataset.v); applyMode(); });
+
+  function renderFoods() {
+    const q = norm($('#food-search').value.trim());
+    const rec = recent();
+    $('#cats').hidden = !!q;
+    $('#cats').innerHTML = CATS.filter(c => c !== 'Recientes' || rec.length).map(c => `<button type="button" class="cat" data-cat="${c}" aria-pressed="${c === cat}">${c}</button>`).join('');
+    let list;
+    if (q) list = FOODS.concat(rec.filter(r => !FOODS.some(f => f.name === r.name && f.portion === r.portion))).filter(f => norm(f.name).includes(q));
+    else if (cat === 'Recientes') list = rec;
+    else list = FOODS.filter(f => f.cat === cat);
+    const qtxt = qty === 1 ? '' : ` × ${qty === 0.5 ? '½' : qty === 1.5 ? '1½' : qty}`;
+    $('#food-results').innerHTML = list.length ? `<ul class="food-list">${list.slice(0, 60).map((f, i) => `
+      <li><button type="button" data-food="${i}"><span><b>${esc(f.name)}</b><small>${esc(f.portion)}${qtxt}</small></span><span class="kc">${fmt(f.kcal * qty)}<small>P ${fmt(f.p * qty)} g</small></span></button></li>`).join('')}</ul>`
+      : `<p class="notice">No encontré “${esc($('#food-search').value)}”. Prueba con otra palabra, o agrégalo en Manual${store.settings.apiKey ? ' o con Foto' : ''}.</p>`;
+    $('#food-results').dataset.list = JSON.stringify(list.slice(0, 60));
+  }
+  $('#food-search').addEventListener('input', renderFoods);
+  $('#cats').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (!b) return; cat = b.dataset.cat; renderFoods(); });
+  $('#food-results').addEventListener('click', e => {
+    const b = e.target.closest('[data-food]'); if (!b) return;
+    const list = JSON.parse($('#food-results').dataset.list || '[]');
+    const f = list[Number(b.dataset.food)];
+    if (!f) return;
+    const portion = qty === 1 ? f.portion : `${qty === 0.5 ? '½' : qty === 1.5 ? '1½' : qty} × ${f.portion}`;
+    const added = addEntries([{ name: f.name, portion, kcal: Math.round(f.kcal * qty), p: Math.round(f.p * qty), c: Math.round(f.c * qty), f: Math.round(f.f * qty) }], 'lista', { keepOpen: true });
+    rememberRecent(f);
+    toast(`Agregaste ${f.name} (${fmt(f.kcal * qty)} kcal)`, () => removeEntries(added));
+  });
+  function rememberRecent(f) {
+    const item = { name: f.name, portion: f.portion, kcal: f.kcal, p: f.p, c: f.c, f: f.f, cat: f.cat || 'Recientes' };
+    const list = [item, ...recent().filter(r => !(r.name === item.name && r.portion === item.portion))].slice(0, 20);
+    store.put('recent', { list });
+  }
+
+  function addEntries(items, src, { keepOpen = false } = {}) {
+    const day = getDay(todayKey());
+    const now = Date.now();
+    const ids = [];
+    items.forEach((it, i) => {
+      const id = `${now.toString(36)}${i}${Math.random().toString(36).slice(2, 6)}`;
+      ids.push(id);
+      day.entries.push({ id, name: it.name, portion: it.portion || '', kcal: clampInt(it.kcal), p: clampInt(it.p, 500), c: clampInt(it.c, 800), f: clampInt(it.f, 400), meal, src, t: now });
+    });
+    saveDay(day);
+    if (!keepOpen) { closeSheets(); if (currentView !== 'hoy') showView('hoy'); }
+    renderHoy();
+    return ids;
+  }
+  function removeEntries(ids) {
+    const day = getDay(todayKey());
+    day.entries = day.entries.filter(e => !ids.includes(e.id));
+    saveDay(day);
+    renderHoy();
+  }
+  $('#manual-add').addEventListener('click', () => {
+    const name = $('#mn-name').value.trim();
+    const kcal = clampInt($('#mn-kcal').value);
+    if (!name || !$('#mn-kcal').value) { toast('Escribe el alimento y sus calorías'); return; }
+    const item = { name, portion: '', kcal, p: clampInt($('#mn-p').value, 500), c: clampInt($('#mn-c').value, 800), f: clampInt($('#mn-f').value, 400) };
+    addEntries([item], 'manual');
+    rememberRecent({ ...item, portion: '1 porción' });
+    ['#mn-name', '#mn-kcal', '#mn-p', '#mn-c', '#mn-f'].forEach(id => { $(id).value = ''; });
+    toast(`Agregaste ${fmt(kcal)} kcal`);
+  });
+
+  // Foto con la API de Anthropic
   function resetPhoto() {
     photoFile = null;
     if (photoURL) { URL.revokeObjectURL(photoURL); photoURL = null; }
     $('#photo-drop').classList.remove('has-img');
     $('#photo-drop').innerHTML = PHOTO_EMPTY;
     $('#photo-input').value = '';
+    $('#photo-note').value = '';
   }
-  function openSheet(m) {
-    mode = m; meal = defaultMeal();
-    resetResult();
-    resetPhoto();
-    $('#backdrop').hidden = false; sheetEl.hidden = false;
-    document.body.style.overflow = 'hidden';
-    applyMode();
-    sheetEl.scrollTop = 0;
-  }
-  function closeSheet() {
-    if (ctl) ctl.abort();
-    $('#backdrop').hidden = true; sheetEl.hidden = true;
-    document.body.style.overflow = '';
-  }
-  function applyMode() {
-    let m = mode;
-    const aiOk = !!sample;
-    const settled = aiSettled;
-    if (settled && !aiOk && m !== 'manual') m = 'manual';
-    if (settled && aiOk && !canImages && m === 'foto') m = 'texto';
-    $('#mode-foto').hidden = settled && (!aiOk || !canImages);
-    $('#mode-texto').hidden = settled && !aiOk;
-    $('#ai-unavail').hidden = !(settled && !aiOk);
-    $$('#mode-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === m)));
-    $$('#meal-seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === meal)));
-    $('#pane-foto').hidden = m !== 'foto';
-    $('#pane-texto').hidden = m !== 'texto';
-    $('#pane-manual').hidden = m !== 'manual';
-    mode = m;
-  }
-  let aiSettled = false;
-  aiReady.then(() => { aiSettled = true; if (!sheetEl.hidden) applyMode(); });
-
-  $$('[data-add]').forEach(b => b.addEventListener('click', () => openSheet(b.dataset.add)));
-  $('#sheet-close').addEventListener('click', closeSheet);
-  $('#backdrop').addEventListener('click', closeSheet);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheetEl.hidden) closeSheet(); });
-  $('#mode-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; mode = b.dataset.v; resetResult(); applyMode(); });
-  $('#meal-seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; meal = b.dataset.v; applyMode(); });
-
+  function resetResult() { $('#ai-result').hidden = true; $('#ai-error').hidden = true; $('#ai-status').hidden = true; aiItems = []; }
   $('#photo-input').addEventListener('change', e => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
@@ -1274,98 +2185,111 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
     drop.innerHTML = `<img src="${photoURL}" alt="Tu foto de comida"><span class="change">Cambiar foto</span>`;
     resetResult();
   });
-
   async function prepImage(file) {
-    try {
-      const bmp = await createImageBitmap(file);
-      const s = Math.min(1, 1400 / Math.max(bmp.width, bmp.height));
-      const cv = document.createElement('canvas');
-      cv.width = Math.round(bmp.width * s); cv.height = Math.round(bmp.height * s);
-      cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
-      return await new Promise(res => cv.toBlob(b => res(b || file), 'image/jpeg', 0.85));
-    } catch { return file; }
+    let bmp;
+    try { bmp = await createImageBitmap(file); }
+    catch {
+      bmp = await new Promise((res, rej) => { const img = new Image(); img.onload = () => res(img); img.onerror = rej; img.src = URL.createObjectURL(file); });
+    }
+    const w = bmp.width, h = bmp.height;
+    const s = Math.min(1, 1280 / Math.max(w, h));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(w * s); cv.height = Math.round(h * s);
+    cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+    return cv.toDataURL('image/jpeg', 0.85).split(',')[1];
   }
-
-  function foodPrompt(kind, text) {
+  const FOOD_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['items', 'confianza', 'nota'],
+    properties: {
+      items: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['nombre', 'porcion', 'kcal', 'proteina', 'carbos', 'grasa'],
+          properties: {
+            nombre: { type: 'string' }, porcion: { type: 'string' },
+            kcal: { type: 'integer' }, proteina: { type: 'integer' }, carbos: { type: 'integer' }, grasa: { type: 'integer' }
+          }
+        }
+      },
+      confianza: { type: 'string', enum: ['alta', 'media', 'baja'] },
+      nota: { type: 'string' }
+    }
+  };
+  function foodPrompt(note) {
     return [
       'Eres nutriólogo y estimas calorías de comida casera, de fonda y callejera de Latinoamérica (sobre todo México).',
-      kind === 'foto' ? 'La imagen adjunta es una foto de lo que la persona va a comer o comió.' : 'La persona describe lo que comió.',
-      text ? `Lo que dice la persona: """${text.slice(0, 600)}"""` : '',
-      'Separa cada alimento o bebida. Usa porciones realistas; si no se distingue la cantidad, asume una porción normal y escríbela en "porcion". Cuenta aceite, tortillas, salsas y bebidas azucaradas cuando se vean o se mencionen.',
-      'Responde SOLO con JSON con esta forma exacta:',
-      '{"items":[{"nombre":"Tacos al pastor","porcion":"3 tacos","kcal":450,"proteina":24,"carbos":42,"grasa":20}],"confianza":"media","nota":"Una frase corta en español: lo que asumiste o un consejo útil."}',
-      'Números enteros. Máximo 8 items. "confianza" es "alta", "media" o "baja".',
-      kind === 'foto' ? 'Si la foto no muestra comida, responde {"items":[],"confianza":"baja","nota":"No veo comida en la foto."}' : ''
+      'La imagen es una foto de lo que la persona va a comer o comió.',
+      note ? `Lo que dice la persona: """${note.slice(0, 400)}"""` : '',
+      'Separa cada alimento o bebida (máximo 8). Usa porciones realistas; si no se distingue la cantidad, asume una porción normal y escríbela en "porcion". Cuenta aceite, tortillas, salsas y bebidas azucaradas cuando se vean o se mencionen.',
+      'Escribe "nombre", "porcion" y "nota" en español. "nota" es una frase corta: lo que asumiste o un consejo útil para alguien que quiere bajar grasa.',
+      'Si la foto no muestra comida, regresa "items" vacío y dilo en "nota".'
     ].filter(Boolean).join('\n');
   }
-  function normalize(res) {
-    const items = (res && Array.isArray(res.items) ? res.items : []).slice(0, 8).map(it => ({
-      name: String(it.nombre || it.name || 'Alimento').slice(0, 60),
-      portion: String(it.porcion || it.portion || '').slice(0, 50),
-      kcal: clampInt(it.kcal), p: clampInt(it.proteina ?? it.protein, 500), c: clampInt(it.carbos ?? it.carbs, 800), f: clampInt(it.grasa ?? it.fat, 400),
-      on: true
-    }));
-    return { items, note: String((res && res.nota) || '').slice(0, 200), conf: String((res && res.confianza) || '') };
-  }
-  function resetResult() {
-    $('#ai-result').hidden = true; $('#ai-error').hidden = true; $('#ai-status').hidden = true;
-    aiItems = [];
-  }
-  function aiErrorCopy(e) {
-    switch (e && e.code) {
-      case 'not_granted': case 'sampling_disabled': case 'not_declared': case 'capability_disabled': case 'capability_removed':
-        sample = null; applyMode();
-        return 'Claude no tiene permiso en esta página. Registra tu comida a mano.';
-      case 'images_unavailable':
-        canImages = false; applyMode();
-        return 'Esta vista no puede enviar fotos. Describe tu comida con palabras.';
-      case 'image_rejected': return 'No pude leer esa foto. Prueba con otra o tómala de nuevo.';
-      case 'rate_limited': return 'Llegaste al límite de consultas por ahora. Intenta en un rato o regístralo a mano.';
-      case 'session_expired': return 'Tu sesión de Claude expiró. Vuelve a iniciar sesión.';
-      case 'refused': case 'empty_completion': case 'invalid_json': return 'No pude calcular eso. Intenta describirlo con otras palabras o con más detalle.';
-      default: return 'Algo falló al conectar con Claude. Intenta de nuevo.';
-    }
-  }
-  async function analyze(kind) {
+  let AnthropicSDK = null;
+  async function analyze() {
+    if (!store.settings.apiKey) { applyMode(); return; }
+    if (!photoFile) { toast('Primero toma o elige una foto'); return; }
     resetResult();
-    if (!aiSettled) { $('#ai-status').hidden = false; $('#ai-status-text').textContent = 'Preparando…'; }
-    await aiReady;
-    if (!sample) { $('#ai-status').hidden = true; applyMode(); return; }
-    let text = '';
-    const opts = { modelTier: kind === 'foto' ? 'default' : 'quick' };
-    if (kind === 'foto') {
-      if (!photoFile) { $('#ai-status').hidden = true; toast('Primero toma o elige una foto'); return; }
-      text = $('#photo-note').value.trim();
-      opts.images = [await prepImage(photoFile)];
-    } else {
-      text = $('#food-text').value.trim();
-      if (!text) { $('#ai-status').hidden = true; toast('Escribe qué comiste'); return; }
-    }
-    ctl = new AbortController();
-    opts.signal = ctl.signal;
+    const btn = $('#analyze');
+    btn.disabled = true;
     $('#ai-status').hidden = false;
-    $('#ai-status-text').textContent = kind === 'foto' ? 'Claude está viendo tu foto…' : 'Calculando…';
-    $('#analyze-foto').disabled = $('#analyze-texto').disabled = true;
+    $('#ai-status-text').textContent = 'Claude está viendo tu foto…';
     try {
-      const res = normalize(await sample.json(foodPrompt(kind, text), opts));
-      if (!res.items.length) {
-        $('#ai-error').hidden = false;
-        $('#ai-error').textContent = res.note || 'No encontré alimentos. Intenta con otra foto o descripción.';
-      } else {
-        aiItems = res.items;
-        $('#ai-note').textContent = [res.note, res.conf ? `Confianza ${res.conf}.` : ''].filter(Boolean).join(' ') + ' Ajusta los números si sabes la porción exacta.';
-        renderAiItems();
-        $('#ai-result').hidden = false;
-        $('#ai-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
+      if (!AnthropicSDK) AnthropicSDK = (await import(SDK_URL)).default;
+      const data = await prepImage(photoFile);
+      const client = new AnthropicSDK({ apiKey: store.settings.apiKey, dangerouslyAllowBrowser: true, maxRetries: 1 });
+      const model = store.settings.model || 'claude-opus-5-5';
+      const params = {
+        model,
+        max_tokens: 4000,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: FOOD_SCHEMA } },
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } },
+          { type: 'text', text: foodPrompt($('#photo-note').value.trim()) }
+        ] }]
+      };
+      if (model === 'claude-opus-5-5') { params.betas = ['server-side-fallback-2026-07-01']; params.fallbacks = 'default'; }
+      const res = await client.beta.messages.create(params);
+      if (res.stop_reason === 'refusal') throw { userMsg: 'Claude no pudo analizar esta foto. Prueba con otra o usa la Lista.' };
+      if (res.stop_reason === 'max_tokens') throw { userMsg: 'La respuesta salió incompleta. Intenta de nuevo.' };
+      const block = res.content.find(b => b.type === 'text');
+      const out = JSON.parse(block ? block.text : '{}');
+      const items = (Array.isArray(out.items) ? out.items : []).slice(0, 8).map(it => ({
+        name: String(it.nombre || 'Alimento').slice(0, 60), portion: String(it.porcion || '').slice(0, 50),
+        kcal: clampInt(it.kcal), p: clampInt(it.proteina, 500), c: clampInt(it.carbos, 800), f: clampInt(it.grasa, 400), on: true
+      }));
+      if (!items.length) { $('#ai-error').hidden = false; $('#ai-error').textContent = out.nota || 'No encontré comida en la foto.'; return; }
+      aiItems = items;
+      $('#ai-note').textContent = [out.nota, out.confianza ? `Confianza ${out.confianza}.` : '', 'Ajusta los números si sabes la porción exacta.'].filter(Boolean).join(' ');
+      renderAiItems();
+      $('#ai-result').hidden = false;
+      $('#ai-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (e) {
-      if (!e || e.code !== 'cancelled') { $('#ai-error').hidden = false; $('#ai-error').textContent = aiErrorCopy(e); }
+      $('#ai-error').hidden = false;
+      $('#ai-error').textContent = aiErrorText(e);
     } finally {
-      ctl = null;
+      btn.disabled = false;
       $('#ai-status').hidden = true;
-      $('#analyze-foto').disabled = $('#analyze-texto').disabled = false;
     }
   }
+  function aiErrorText(e) {
+    if (e && e.userMsg) return e.userMsg;
+    const A = AnthropicSDK;
+    if (!A) return 'No pude cargar la librería de fotos. Revisa tu internet.';
+    if (e instanceof A.AuthenticationError) return 'Tu API key no es válida. Revísala en Más → Fotos con IA.';
+    if (e instanceof A.PermissionDeniedError) return 'Tu API key no tiene permiso para este modelo. Prueba con el otro en Más → Fotos con IA.';
+    if (e instanceof A.RateLimitError) return 'Demasiadas fotos seguidas. Espera un minuto.';
+    if (e instanceof A.BadRequestError) return 'La API rechazó la foto: ' + String(e.message || '').slice(0, 160) + ' Si dice que no tienes saldo, recarga en console.anthropic.com.';
+    if (e instanceof A.APIConnectionError) return 'Sin internet. Usa la Lista o agrégalo a mano.';
+    if (e instanceof A.APIError) return `La API respondió con error ${e.status}. Intenta en un rato.`;
+    if (e instanceof SyntaxError) return 'No pude leer la respuesta. Intenta de nuevo.';
+    return 'No pude analizar la foto. Intenta de nuevo o usa la Lista.';
+  }
+  $('#analyze').addEventListener('click', analyze);
   function renderAiItems() {
     $('#ai-items').innerHTML = aiItems.map((it, i) => `
       <div class="ai-item">
@@ -1388,35 +2312,11 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
     else if (e.target.dataset.f === 'p') aiItems[i].p = clampInt(e.target.value, 500);
     updateAiTotal();
   });
-  $('#ai-stop').addEventListener('click', () => { if (ctl) ctl.abort(); });
-  $('#analyze-foto').addEventListener('click', () => analyze('foto'));
-  $('#analyze-texto').addEventListener('click', () => analyze('texto'));
-
-  function addEntries(items, src) {
-    const day = getDay(todayKey());
-    const now = Date.now();
-    items.forEach((it, i) => day.entries.push({
-      id: `${now.toString(36)}${i}${Math.random().toString(36).slice(2, 6)}`,
-      name: it.name, portion: it.portion || '', kcal: it.kcal, p: it.p || 0, c: it.c || 0, f: it.f || 0, meal, src, t: now
-    }));
-    saveDay(day.date);
-    const t = totals(items);
-    closeSheet();
-    if (currentView !== 'hoy') showView('hoy'); else renderHoy();
-    toast(`Agregaste ${fmt(t.kcal)} kcal a ${MEALS.find(m => m[0] === meal)[1].toLowerCase()}`);
-  }
   $('#ai-add').addEventListener('click', () => {
     const chosen = aiItems.filter(x => x.on);
     if (!chosen.length) return;
-    addEntries(chosen, mode);
-    $('#food-text').value = ''; $('#photo-note').value = '';
-  });
-  $('#manual-add').addEventListener('click', () => {
-    const name = $('#m-name').value.trim();
-    const kcal = clampInt($('#m-kcal').value);
-    if (!name || !kcal) { toast('Escribe el alimento y sus calorías'); return; }
-    addEntries([{ name, kcal, p: clampInt($('#m-p').value, 500), c: clampInt($('#m-c').value, 800), f: clampInt($('#m-f').value, 400) }], 'manual');
-    ['#m-name', '#m-kcal', '#m-p', '#m-c', '#m-f'].forEach(id => { $(id).value = ''; });
+    addEntries(chosen, 'foto');
+    toast(`Agregaste ${fmt(totals(chosen).kcal)} kcal`);
   });
 
   // ---------- Aviso flotante ----------
@@ -1433,16 +2333,30 @@ svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: ro
   }
 
   // ---------- Arranque ----------
-  loadLocal();
+  store.init();
   const fromHash = (location.hash || '').slice(1);
   renderHeader();
-  showView(['hoy', 'calcular', 'peso', 'avisos'].includes(fromHash) ? fromHash : 'hoy');
-  setSyncChip(false);
-  Store.connect().then(async ok => {
-    setSyncChip(ok);
-    if (!ok) return;
-    await Promise.all(allKeys().map(loadKey));
-    renderAll();
+  if (SUB_TITLES[fromHash]) showView('mas', fromHash);
+  else showView(TITLES[fromHash] ? fromHash : 'hoy');
+  renderSyncChip();
+  sync.run();
+  setInterval(() => { if (!document.hidden && store.settings.clave) sync.run(); }, 60000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { Object.keys(timers).forEach(k => clearTimeout(timers[k])); flushPending(); }
+    else { renderAll(); sync.run(); }
   });
+  window.addEventListener('online', () => sync.run());
+  // Guarda lo que quedó pendiente de escribir (pesos de series, agua) al salir de la app.
+  function flushPending() {
+    Object.keys(store.data).forEach(k => {
+      if ((k.startsWith('d-') || k.startsWith('e-') || k === 'profile') && JSON.stringify(store.data[k]) !== JSON.stringify(LS.get('k:' + k))) store.put(k, store.data[k]);
+    });
+  }
+  window.addEventListener('pagehide', flushPending);
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* sin modo offline */ }); });
+  }
 })();
 </script>
+</body>
+</html>
